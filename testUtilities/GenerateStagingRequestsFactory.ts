@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-/* eslint-disable class-methods-use-this */
 import { BatchReadWriteRequest, BatchReadWriteResponse } from '@ascentms/fhir-works-on-aws-interface';
 import { marshall } from '@aws-sdk/util-dynamodb';
 

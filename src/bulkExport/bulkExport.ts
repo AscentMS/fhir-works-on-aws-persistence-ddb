@@ -64,6 +64,7 @@ export const startJobExecution = async (bulkExportJob: BulkExportJob): Promise<v
         serverUrl,
         compartmentSearchParamFile,
     } = bulkExportJob;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {
         jobId,
         jobOwnerId,

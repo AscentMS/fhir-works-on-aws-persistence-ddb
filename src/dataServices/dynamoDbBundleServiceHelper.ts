@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
@@ -294,7 +295,7 @@ export default class DynamoDbBundleServiceHelper {
 
         const batchReadWriteResponses: BatchReadWriteResponse[] = [];
         let originalRequestIndex = -1;
-        // eslint-disable-next-line no-restricted-syntax
+         
         for (const request of requests) {
             originalRequestIndex += 1;
             let vid = 0;
@@ -308,7 +309,7 @@ export default class DynamoDbBundleServiceHelper {
                 id = request.id ? request.id : v4();
             } else {
                 try {
-                    // eslint-disable-next-line no-await-in-loop
+                     
                     item = await dynamoDbHelper.getMostRecentUserReadableResource(resourceType, id, tenantId);
                     vid = Number(item.resource?.meta.versionId);
                 } catch (e: any) {
@@ -340,7 +341,7 @@ export default class DynamoDbBundleServiceHelper {
                             error: '404 Not Found',
                         });
                     }
-                    // eslint-disable-next-line no-continue
+                     
                     continue;
                 }
             }
@@ -443,7 +444,7 @@ export default class DynamoDbBundleServiceHelper {
             const statements = batch.map((x) => {
                 return { PutRequest: x.PutRequest };
             });
-            // eslint-disable-next-line no-await-in-loop
+             
             const batchExecuteResponse = await dynamoDb
                 .batchWriteItem({
                     RequestItems: {
@@ -474,7 +475,7 @@ export default class DynamoDbBundleServiceHelper {
             const statements = batch.map((x) => {
                 return { Statement: x.Statement };
             });
-            // eslint-disable-next-line no-await-in-loop
+             
             const batchExecuteResponse = await dynamoDb
                 .batchExecuteStatement({
                     Statements: [...statements],

@@ -3,8 +3,6 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-/* eslint-disable class-methods-use-this */
-
 import mime from 'mime-types';
 import {
     GenericResponse,
@@ -139,12 +137,12 @@ export class S3DataService implements Persistence {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    conditionalCreateResource(request: CreateResourceRequest, queryParams: any): Promise<GenericResponse> {
+    conditionalCreateResource(request: CreateResourceRequest, queryParams: unknown): Promise<GenericResponse> {
         throw new Error('Method not implemented.');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    conditionalUpdateResource(request: UpdateResourceRequest, queryParams: any): Promise<GenericResponse> {
+    conditionalUpdateResource(request: UpdateResourceRequest, queryParams: unknown): Promise<GenericResponse> {
         throw new Error('Method not implemented.');
     }
 
@@ -154,12 +152,12 @@ export class S3DataService implements Persistence {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    conditionalPatchResource(request: PatchResourceRequest, queryParams: any): Promise<GenericResponse> {
+    conditionalPatchResource(request: PatchResourceRequest, queryParams: unknown): Promise<GenericResponse> {
         throw new Error('Method not implemented.');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    conditionalDeleteResource(request: ConditionalDeleteResourceRequest, queryParams: any): Promise<GenericResponse> {
+    conditionalDeleteResource(request: ConditionalDeleteResourceRequest, queryParams: unknown): Promise<GenericResponse> {
         throw new Error('Method not implemented.');
     }
 
@@ -178,7 +176,7 @@ export class S3DataService implements Persistence {
         throw new Error('Method not implemented.');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     async getActiveSubscriptions(params: { tenantId?: string }): Promise<Record<string, any>[]> {
         throw new Error('Method not implemented.');
     }

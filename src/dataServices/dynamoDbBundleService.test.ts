@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
@@ -1011,7 +1012,7 @@ describe('atomicallyReadWriteResources', () => {
                 id,
                 resource: `Patient/${id}`,
             };
-            // @ts-ignore
+            // @ts-expect-error - calling a private member
             const actualResponse = await bundleService.lockItems([batchRequest]);
             if (isLockSuccessful) {
                 expect(actualResponse).toStrictEqual({
@@ -1038,7 +1039,7 @@ describe('atomicallyReadWriteResources', () => {
             [false, 'read', false],
         ];
 
-        // eslint-disable-next-line no-restricted-syntax
+         
         for (const [supportUpdateCreate, operation, isLockSuccessful] of testCases) {
             test('lock update ', async () => {
                 await runTest(supportUpdateCreate as boolean, operation as TypeOperation, isLockSuccessful as boolean);

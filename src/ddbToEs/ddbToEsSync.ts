@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
@@ -83,7 +84,7 @@ export class DdbToEsSync {
                 logger.debug(image);
                 // Don't index binary files
                 if (isBinaryResource(image)) {
-                    // eslint-disable-next-line no-continue
+                     
                     continue;
                 }
 

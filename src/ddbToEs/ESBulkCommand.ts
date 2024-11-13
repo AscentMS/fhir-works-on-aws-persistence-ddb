@@ -6,6 +6,7 @@
 export type OperationType = 'delete' | 'upsert-AVAILABLE' | 'upsert-DELETED';
 
 export default interface ESBulkCommand {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bulkCommand: any[];
     /**
      * This will be a unique identifier or composite id i.e. `<id>_<vid>`

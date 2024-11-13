@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
-import { BatchStopJobRunCommand, Glue, StartJobRunCommand } from '@aws-sdk/client-glue';
+import { BatchStopJobRunCommand, Glue } from '@aws-sdk/client-glue';
 import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';
 

@@ -6,10 +6,7 @@
 import { GenericResponse } from '@ascentms/fhir-works-on-aws-interface';
 import { GetObjectCommand, PutObjectCommand, ServerSideEncryption } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { getSignedUrl, S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
-import { HttpRequest } from '@smithy/protocol-http';
-import { parseUrl } from '@smithy/url-parser';
-import { formatUrl } from '@aws-sdk/util-format-url';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { S3, FHIR_BINARY_BUCKET, S3_KMS_KEY } from './s3';
 import ObjectStorageInterface from './objectStorageInterface';
@@ -24,9 +21,7 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
     static PRESIGNED_URL_EXPIRATION_IN_SECONDS = 300;
 
     static async uploadObject(data: string, fileName: string, contentType: string): Promise<GenericResponse> {
-        // @ts-ignore
-        // eslint-disable-next-line new-cap
-        const base64Data = new Buffer.from(data, 'base64');
+        const base64Data = Buffer.from(data, 'base64');
 
         const params = {
             Bucket: FHIR_BINARY_BUCKET,
@@ -120,7 +115,7 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
                 Key: fileName,
             });
         } catch (e) {
-            logger.error(`File does not exist. FileName: ${fileName}`);
+            logger.error(`File does not exist. FileName: ${fileName} - ${(e as Error).message}`);
             throw new ObjectNotFoundError(fileName);
         }
 
@@ -148,15 +143,17 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
         let token;
         const promises = [];
         do {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const listParams: any = {
                 Bucket: FHIR_BINARY_BUCKET,
                 Prefix: prefix,
                 ContinuationToken: token,
             };
-            // eslint-disable-next-line no-await-in-loop
+            
             const results = await S3.listObjectsV2(listParams);
             const contents = results.Contents || [];
             token = results.ContinuationToken;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const keysToDelete: any[] = contents.map((content) => {
                 return { Key: content.Key };
             });

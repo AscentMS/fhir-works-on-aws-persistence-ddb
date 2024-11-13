@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
@@ -85,11 +86,11 @@ export default class DynamoDbHelper {
                 latestItemDocStatus,
             )
         ) {
-            // eslint-disable-next-line prefer-destructuring
+             
             item = items[0];
         } else if (latestItemDocStatus === DOCUMENT_STATUS.PENDING && items.length > 1) {
             // If the latest version of the resource is in PENDING, grab the previous version
-            // eslint-disable-next-line prefer-destructuring
+             
             item = items[1];
         } else {
             throw new ResourceNotFoundError(resourceType, id);

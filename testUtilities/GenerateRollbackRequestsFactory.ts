@@ -54,6 +54,7 @@ export default class GenerateRollbackRequestsFactory {
 
     static buildExpectedBundleEntryResult(bundleEntryResponse: BatchReadWriteResponse) {
         const { id, vid, resourceType, operation } = bundleEntryResponse;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let expectedResult: any = {};
         if (operation === 'create' || operation === 'update') {
             expectedResult = {

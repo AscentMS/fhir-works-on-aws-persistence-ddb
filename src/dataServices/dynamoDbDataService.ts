@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-/* eslint-disable class-methods-use-this */
+ 
 
 import { v4 } from 'uuid';
 import {
@@ -394,7 +395,7 @@ export class DynamoDbDataService implements Persistence, BulkDataAccess {
         let queryResponse;
         const subscriptions: Record<string, any>[] = [];
         do {
-            // eslint-disable-next-line no-await-in-loop
+             
             queryResponse = await this.dynamoDb.query(subscriptionQuery);
             queryResponse.Items?.forEach((response) => {
                 const item = unmarshall(response);

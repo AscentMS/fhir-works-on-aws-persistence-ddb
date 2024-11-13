@@ -3,7 +3,7 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-// eslint-disable-next-line no-unused-vars
+ 
 import { GenericResponse } from '@ascentms/fhir-works-on-aws-interface';
 
 export default interface ObjectStorageInterface {

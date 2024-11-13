@@ -10,9 +10,7 @@ import DdbToEsHelper from './ddbToEsHelper';
 const ddbHelperCreateIndexAndAliasIfNotExistMock = jest.fn();
 const ddbHelperExecuteEsCmds = jest.fn();
 
-// @ts-ignore
 DdbToEsHelper.prototype.createIndexAndAliasIfNotExist = ddbHelperCreateIndexAndAliasIfNotExistMock;
-// @ts-ignore
 DdbToEsHelper.prototype.executeEsCmds = ddbHelperExecuteEsCmds;
 
 const EVENT = {

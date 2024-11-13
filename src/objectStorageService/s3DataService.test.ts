@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// eslint-disable-next-line max-classes-per-file
+ 
 import {
     vReadResourceRequest,
     ReadResourceRequest,

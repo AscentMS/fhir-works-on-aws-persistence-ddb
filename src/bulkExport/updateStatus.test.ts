@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
@@ -7,7 +8,6 @@ import { DynamoDB, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';
 import each from 'jest-each';
-import sinon from 'sinon';
 import { updateStatusStatusHandler } from './updateStatus';
 import { BulkExportStateMachineGlobalParameters } from './types';
 import DynamoDbParamBuilder from '../dataServices/dynamoDbParamBuilder';

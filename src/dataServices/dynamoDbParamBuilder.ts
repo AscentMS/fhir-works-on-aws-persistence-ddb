@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
 
 import { ExportJobStatus, InitiateExportRequest } from '@ascentms/fhir-works-on-aws-interface';
-import { QueryInput } from 'aws-sdk/clients/dynamodb';
 import {
     EXPORT_REQUEST_TABLE,
     EXPORT_REQUEST_TABLE_JOB_STATUS_INDEX,
@@ -112,7 +112,6 @@ export default class DynamoDbParamBuilder {
         };
 
         if (projectionExpression) {
-            // @ts-ignore
             params.ProjectionExpression = projectionExpression;
         }
         return params;
@@ -186,7 +185,7 @@ export default class DynamoDbParamBuilder {
     }
 
     static buildQueryExportRequestJobStatus(jobStatus: ExportJobStatus, projectionExpression?: string) {
-        const params = {
+        const params: any = {
             TableName: EXPORT_REQUEST_TABLE,
             KeyConditionExpression: 'jobStatus = :hkey',
             ExpressionAttributeValues: marshall({
@@ -196,7 +195,6 @@ export default class DynamoDbParamBuilder {
         };
 
         if (projectionExpression) {
-            // @ts-ignore
             params.ProjectionExpression = projectionExpression;
         }
 

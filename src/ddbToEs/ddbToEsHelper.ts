@@ -1,9 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
-
-/* eslint-disable no-underscore-dangle */
 
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { Client } from '@opensearch-project/opensearch';
@@ -20,18 +19,16 @@ const DELETED = 'DELETED';
 
 const logger = getComponentLogger();
 
-let { ELASTICSEARCH_DOMAIN_ENDPOINT, IS_OFFLINE, OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT } = process.env;
+let { ELASTICSEARCH_DOMAIN_ENDPOINT } = process.env;
 
-if (IS_OFFLINE === 'true') {
-    ELASTICSEARCH_DOMAIN_ENDPOINT = OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT || 'https://fake-es-endpoint.com';
+if (process.env.IS_OFFLINE === 'true') {
+    ELASTICSEARCH_DOMAIN_ENDPOINT = process.env.OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT || 'https://fake-es-endpoint.com';
 }
 
 const formatDocument = (ddbImage: any): any => {
-    // eslint-disable-next-line no-underscore-dangle
     if (ddbImage._tenantId) {
         return {
             ...ddbImage,
-            // eslint-disable-next-line no-underscore-dangle
             id: ddbImage._id, // use the original resourceId as id instead of the DDB composite id
             _id: undefined, // _id is a reserved field in ES, so it must be removed.
         };
@@ -160,7 +157,7 @@ export default class DdbToEsHelper {
         }
     }
 
-    // eslint-disable-next-line class-methods-use-this
+     
     private generateFullId(ddbImage: any) {
         const { id, vid, _tenantId, _id } = ddbImage;
         if (_tenantId) {
@@ -250,7 +247,7 @@ export default class DdbToEsHelper {
         }
     }
 
-    // eslint-disable-next-line class-methods-use-this
+     
     isRemoveResource(record: any): boolean {
         if (record.eventName === REMOVE) {
             return true;

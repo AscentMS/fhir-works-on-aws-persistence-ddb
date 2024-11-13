@@ -24,6 +24,7 @@ export const buildHashKey = (id: string, tenantId?: string): string => {
 };
 
 export class DynamoDbUtil {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static cleanItem(item: any) {
         const cleanedItem = clone(item);
 
@@ -53,6 +54,7 @@ export class DynamoDbUtil {
     }
 
     static prepItemForDdbInsert(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resource: any,
         id: string,
         vid: number,

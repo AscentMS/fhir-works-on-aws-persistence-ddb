@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
 import { BatchReadWriteRequest, BatchReadWriteResponse, ResourceNotFoundError } from '@ascentms/fhir-works-on-aws-interface';
-import { BatchExecuteStatementCommand, BatchStatementErrorCodeEnum, BatchWriteItemCommand, DynamoDB, DynamoDBClient, QueryInput } from '@aws-sdk/client-dynamodb';
+import { BatchExecuteStatementCommand, BatchWriteItemCommand, DynamoDB, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';

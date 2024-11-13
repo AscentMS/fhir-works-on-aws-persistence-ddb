@@ -15,8 +15,7 @@ describe('captureFullUrlParts', () => {
         ];
 
         for (let i = 0; i < expectedMatch.length; i += 1) {
-            // @ts-ignore
-            expect(actualMatch[i]).toEqual(expectedMatch[i]);
+            expect(actualMatch![i]).toEqual(expectedMatch[i]);
         }
     });
 
@@ -33,8 +32,7 @@ describe('captureFullUrlParts', () => {
             undefined,
         ];
 
-        // @ts-ignore
-        expect([...actualMatch]).toEqual([...expectedMatch]);
+        expect([...actualMatch!]).toEqual([...expectedMatch]);
     });
 
     test('Capture resourceType, id', () => {
@@ -44,7 +42,6 @@ describe('captureFullUrlParts', () => {
 
         const expectedMatch = ['Observation/123', undefined, 'Observation', '123', undefined];
 
-        // @ts-ignore
-        expect([...actualMatch]).toEqual([...expectedMatch]);
+        expect([...actualMatch!]).toEqual([...expectedMatch]);
     });
 });

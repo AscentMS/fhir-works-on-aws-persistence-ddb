@@ -142,7 +142,7 @@ describe('getBulkExportResults', () => {
             });
         });
         */
-        jest.spyOn(bulkExportS3PresignedUrlGenerator, 'getUrls').mockImplementation(async ({exportBucket, s3Keys}): Promise< { requiresAccessToken: boolean, urls: string[]}> => {
+        jest.spyOn(bulkExportS3PresignedUrlGenerator, 'getUrls').mockImplementation(async (): Promise< { requiresAccessToken: boolean, urls: string[]}> => {
             throw new Error('Could not parse the name of bulk exports result file: job-1/BadFilenameFormat$$.exe');
         });
 

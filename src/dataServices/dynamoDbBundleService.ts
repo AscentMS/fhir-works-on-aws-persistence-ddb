@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-/* eslint-disable class-methods-use-this */
 import { DynamoDB, TransactGetItem, TransactWriteItem  } from '@aws-sdk/client-dynamodb';
 import {
     BatchRequest,
@@ -48,7 +48,7 @@ export class DynamoDbBundleService implements Bundle {
 
     private static readonly dynamoDbMaxTransactionBundleSize = 100;
 
-    private readonly maxBatchSize: Number;
+    private readonly maxBatchSize: number;
 
     private readonly versionedLinks: Record<string, Set<string>> | undefined;
 
@@ -78,7 +78,7 @@ export class DynamoDbBundleService implements Bundle {
             enableMultiTenancy = false,
             versionedLinks,
             maxBatchSize = 750,
-        }: { enableMultiTenancy?: boolean; versionedLinks?: Record<string, string[]>; maxBatchSize?: Number } = {},
+        }: { enableMultiTenancy?: boolean; versionedLinks?: Record<string, string[]>; maxBatchSize?: number } = {},
     ) {
         this.dynamoDbHelper = new DynamoDbHelper(dynamoDb);
         this.dynamoDb = dynamoDb;
@@ -342,7 +342,7 @@ export class DynamoDbBundleService implements Bundle {
         for (let i = 0; i < itemResponses.length; i += 1) {
             const itemResponse = itemResponses[i];
             if (itemResponse instanceof ResourceNotFoundError) {
-                // eslint-disable-next-line no-continue
+                 
                 continue;
             }
             const { resourceType, id, meta } = itemResponse.resource;
@@ -565,7 +565,7 @@ export class DynamoDbBundleService implements Bundle {
 
         for (let i = 0; i < params.length; i += 1) {
             try {
-                // eslint-disable-next-line no-await-in-loop
+                 
                 await this.dynamoDb.transactWriteItems(params[i]);
             } catch (e) {
                 logger.error('Failed to unlock items', e);
@@ -600,7 +600,6 @@ export class DynamoDbBundleService implements Bundle {
         }
         try {
             const writeRequests = chunk(transactionRequests, this.MAX_TRANSACTION_SIZE).map((items) => {
-                // @ts-ignore
                 return this.dynamoDb
                     .transactWriteItems({
                         TransactItems: items as TransactWriteItem[]
@@ -670,7 +669,6 @@ export class DynamoDbBundleService implements Bundle {
 
             if (readRequests.length > 0) {
                 const readChunkRequests = chunk(readRequests, this.MAX_TRANSACTION_SIZE).map((items) => {
-                    // @ts-ignore
                     return this.dynamoDb
                         .transactGetItems({
                             TransactItems: items as TransactGetItem[],

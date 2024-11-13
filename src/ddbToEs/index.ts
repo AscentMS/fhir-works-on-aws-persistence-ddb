@@ -10,6 +10,7 @@ const ddbToEsSync = new DdbToEsSync();
 // This is a separate lambda function from the main FHIR API server lambda.
 // This lambda picks up changes from DDB by way of DDB stream, and sends those changes to ElasticSearch Service for indexing.
 // This allows the FHIR API Server to query ElasticSearch service for search requests
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function handleDdbToEsEvent(event: any) {
     return ddbToEsSync.handleDDBStreamEvent(event);
 }

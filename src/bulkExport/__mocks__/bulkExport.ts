@@ -9,5 +9,5 @@ export const getBulkExportResults = async (jobId: string): Promise<{ type: strin
     return [];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function,@typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const startJobExecution = async (bulkExportJob: BulkExportJob): Promise<void> => {};

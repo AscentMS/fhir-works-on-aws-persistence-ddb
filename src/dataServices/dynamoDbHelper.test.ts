@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ResourceNotFoundError } from '@ascentms/fhir-works-on-aws-interface';
-import { DynamoDB, DynamoDBClient, QueryCommand, QueryInput } from '@aws-sdk/client-dynamodb';
+import { DynamoDB, DynamoDBClient, QueryCommand } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';

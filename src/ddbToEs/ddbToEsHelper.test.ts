@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Client } from '@elastic/elasticsearch'; //Mocking doesn't work with the Opensearch client. It just hangs. 
 import Mock from '@elastic/elasticsearch-mock';
 
