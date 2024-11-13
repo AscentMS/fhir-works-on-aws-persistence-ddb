@@ -15,6 +15,12 @@
     "Nestor Carvantes <nestorba@amazon.com>"
   ],
   "license": "Apache-2.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/ascentms",
+    "files": [
+      "lib"
+    ]
+  },
   "scripts": {
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
