@@ -4,8 +4,9 @@
  */
 
 /* eslint-disable class-methods-use-this */
-import { BatchReadWriteRequest, BatchReadWriteResponse } from 'fhir-works-on-aws-interface';
-import { DynamoDBConverter } from '../src/dataServices/dynamoDb';
+import { BatchReadWriteRequest, BatchReadWriteResponse } from '@ascentms/fhir-works-on-aws-interface';
+import { marshall } from '@aws-sdk/util-dynamodb';
+
 import { DOCUMENT_STATUS_FIELD } from '../src/dataServices/dynamoDbUtil';
 import DOCUMENT_STATUS from '../src/dataServices/documentStatus';
 import { timeFromEpochInMsRegExp, utcTimeRegExp, uuidRegExp } from './regExpressions';
@@ -46,7 +47,7 @@ export default class GenerateStagingRequestsFactory {
         const expectedRequest = {
             Put: {
                 TableName: '',
-                Item: DynamoDBConverter.marshall(expectedCreateItem),
+                Item: marshall(expectedCreateItem),
             },
         };
 
@@ -159,7 +160,7 @@ export default class GenerateStagingRequestsFactory {
         const expectedRequest = {
             Put: {
                 TableName: '',
-                Item: DynamoDBConverter.marshall(expectedUpdateItem),
+                Item: marshall(expectedUpdateItem),
             },
         };
 

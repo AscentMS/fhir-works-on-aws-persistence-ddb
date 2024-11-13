@@ -3,13 +3,14 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { Handler } from 'aws-lambda';
 
-import AWS from '../AWS';
 import { BulkExportStateMachineGlobalParameters } from './types';
 import DynamoDbParamBuilder from '../dataServices/dynamoDbParamBuilder';
-import { DynamoDBConverter } from '../dataServices/dynamoDb';
 import { buildHashKey } from '../dataServices/dynamoDbUtil';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { Glue } from '@aws-sdk/client-glue';
 
 export const getJobStatusHandler: Handler<
     BulkExportStateMachineGlobalParameters,
@@ -27,8 +28,8 @@ export const getJobStatusHandler: Handler<
     const hashKey = buildHashKey(event.jobId, event.tenantId);
 
     const [getJobRunResponse, getItemResponse] = await Promise.all([
-        new AWS.Glue().getJobRun({ JobName: GLUE_JOB_NAME, RunId: glueJobRunId }).promise(),
-        new AWS.DynamoDB().getItem(DynamoDbParamBuilder.buildGetExportRequestJob(hashKey)).promise(),
+        new Glue().getJobRun({ JobName: GLUE_JOB_NAME, RunId: glueJobRunId }),
+        new DynamoDB().getItem(DynamoDbParamBuilder.buildGetExportRequestJob(hashKey)),
     ]);
 
     if (!getItemResponse.Item) {
@@ -37,7 +38,7 @@ export const getJobStatusHandler: Handler<
         throw new Error(`FHIR bulk export job was not found for jobId=${hashKey}`);
     }
 
-    const { jobStatus } = DynamoDBConverter.unmarshall(getItemResponse.Item);
+    const { jobStatus } = unmarshall(getItemResponse.Item);
     const glueJobStatus = getJobRunResponse.JobRun!.JobRunState!;
 
     return {

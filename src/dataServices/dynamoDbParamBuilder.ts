@@ -3,10 +3,9 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import { ExportJobStatus, InitiateExportRequest } from 'fhir-works-on-aws-interface';
+import { ExportJobStatus, InitiateExportRequest } from '@ascentms/fhir-works-on-aws-interface';
 import { QueryInput } from 'aws-sdk/clients/dynamodb';
 import {
-    DynamoDBConverter,
     EXPORT_REQUEST_TABLE,
     EXPORT_REQUEST_TABLE_JOB_STATUS_INDEX,
     RESOURCE_TABLE,
@@ -20,6 +19,8 @@ import {
 } from './dynamoDbUtil';
 import DOCUMENT_STATUS from './documentStatus';
 import { BulkExportJob } from '../bulkExport/types';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { QueryCommandInput } from '@aws-sdk/client-dynamodb';
 
 const EXPORT_INTERNAL_ID_FIELD = '_jobId';
 
@@ -73,12 +74,12 @@ export default class DynamoDbParamBuilder {
         const params: any = {
             Update: {
                 TableName: RESOURCE_TABLE,
-                Key: DynamoDBConverter.marshall({
+                Key: marshall({
                     id: buildHashKey(id, tenantId),
                     vid,
                 }),
                 UpdateExpression: updateExpression,
-                ExpressionAttributeValues: DynamoDBConverter.marshall(expressionAttributeValues),
+                ExpressionAttributeValues: marshall(expressionAttributeValues),
                 ConditionExpression: conditionExpression,
             },
         };
@@ -104,7 +105,7 @@ export default class DynamoDbParamBuilder {
             FilterExpression: '#r = :resourceType',
             KeyConditionExpression: 'id = :hkey',
             ExpressionAttributeNames: { '#r': 'resourceType' },
-            ExpressionAttributeValues: DynamoDBConverter.marshall({
+            ExpressionAttributeValues: marshall({
                 ':hkey': buildHashKey(id, tenantId),
                 ':resourceType': resourceType,
             }),
@@ -121,7 +122,7 @@ export default class DynamoDbParamBuilder {
         const params: any = {
             Delete: {
                 TableName: RESOURCE_TABLE,
-                Key: DynamoDBConverter.marshall({
+                Key: marshall({
                     id: buildHashKey(id, tenantId),
                     vid,
                 }),
@@ -134,7 +135,7 @@ export default class DynamoDbParamBuilder {
     static buildGetItemParam(id: string, vid: number, tenantId?: string) {
         return {
             TableName: RESOURCE_TABLE,
-            Key: DynamoDBConverter.marshall({
+            Key: marshall({
                 id: buildHashKey(id, tenantId),
                 vid,
             }),
@@ -157,7 +158,7 @@ export default class DynamoDbParamBuilder {
         const newItem = DynamoDbUtil.prepItemForDdbInsert(item, id, vid, DOCUMENT_STATUS.AVAILABLE, tenantId);
         const param: any = {
             TableName: RESOURCE_TABLE,
-            Item: DynamoDBConverter.marshall(newItem),
+            Item: marshall(newItem),
         };
 
         if (!allowOverwriteId) {
@@ -180,7 +181,7 @@ export default class DynamoDbParamBuilder {
         newItem.type = initiateExportRequest.type ?? '';
         return {
             TableName: EXPORT_REQUEST_TABLE,
-            Item: DynamoDBConverter.marshall(newItem),
+            Item: marshall(newItem),
         };
     }
 
@@ -188,7 +189,7 @@ export default class DynamoDbParamBuilder {
         const params = {
             TableName: EXPORT_REQUEST_TABLE,
             KeyConditionExpression: 'jobStatus = :hkey',
-            ExpressionAttributeValues: DynamoDBConverter.marshall({
+            ExpressionAttributeValues: marshall({
                 ':hkey': jobStatus,
             }),
             IndexName: EXPORT_REQUEST_TABLE_JOB_STATUS_INDEX,
@@ -206,12 +207,12 @@ export default class DynamoDbParamBuilder {
         const hashKey = buildHashKey(jobId, tenantId);
         const params = {
             TableName: EXPORT_REQUEST_TABLE,
-            Key: DynamoDBConverter.marshall({
+            Key: marshall({
                 jobId: hashKey,
             }),
             UpdateExpression: 'set jobStatus = :newStatus',
             ConditionExpression: 'jobId = :jobIdVal',
-            ExpressionAttributeValues: DynamoDBConverter.marshall({
+            ExpressionAttributeValues: marshall({
                 ':newStatus': jobStatus,
                 ':jobIdVal': hashKey,
             }),
@@ -223,7 +224,7 @@ export default class DynamoDbParamBuilder {
     static buildGetExportRequestJob(jobId: string, tenantId?: string) {
         const params = {
             TableName: EXPORT_REQUEST_TABLE,
-            Key: DynamoDBConverter.marshall({
+            Key: marshall({
                 jobId: buildHashKey(jobId, tenantId),
             }),
         };
@@ -231,12 +232,12 @@ export default class DynamoDbParamBuilder {
         return params;
     }
 
-    static buildGetActiveSubscriptions(tenantId?: string): QueryInput {
+    static buildGetActiveSubscriptions(tenantId?: string): QueryCommandInput {
         const params = {
             TableName: RESOURCE_TABLE,
             IndexName: 'activeSubscriptions',
             KeyConditionExpression: '#subscriptionStatus = :active',
-            ExpressionAttributeValues: DynamoDBConverter.marshall({
+            ExpressionAttributeValues: marshall({
                 ':active': 'active',
             }),
             ExpressionAttributeNames: {
@@ -245,7 +246,7 @@ export default class DynamoDbParamBuilder {
         };
         if (tenantId) {
             params.KeyConditionExpression += ' AND begins_with(id,:tenantId)';
-            params.ExpressionAttributeValues = DynamoDBConverter.marshall({
+            params.ExpressionAttributeValues = marshall({
                 ':active': 'active',
                 ':tenantId': tenantId,
             });

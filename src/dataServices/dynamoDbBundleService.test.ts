@@ -3,39 +3,40 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-// eslint-disable-next-line import/no-extraneous-dependencies
-import * as AWSMock from 'aws-sdk-mock';
-
-import { QueryInput, TransactWriteItemsInput, TransactWriteItem } from 'aws-sdk/clients/dynamodb';
-// @ts-ignore
-import AWS from 'aws-sdk';
 import {
     BundleResponse,
     BatchReadWriteRequest,
     TypeOperation,
     ResourceNotFoundError,
-} from 'fhir-works-on-aws-interface';
+} from '@ascentms/fhir-works-on-aws-interface';
+import { DynamoDB, DynamoDBClient, QueryCommand, TransactWriteItem, TransactWriteItemsCommand } from '@aws-sdk/client-dynamodb';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { mockClient } from 'aws-sdk-client-mock';
+import 'aws-sdk-client-mock-jest';
 import { range } from 'lodash';
+import { createSandbox, SinonStub, spy } from 'sinon';
+
 import { DynamoDbBundleService } from './dynamoDbBundleService';
-import { DynamoDBConverter } from './dynamoDb';
 import { timeFromEpochInMsRegExp, utcTimeRegExp, uuidRegExp } from '../../testUtilities/regExpressions';
 import DynamoDbHelper from './dynamoDbHelper';
 import { DOCUMENT_STATUS_FIELD, LOCK_END_TS_FIELD, REFERENCES_FIELD, VID_FIELD } from './dynamoDbUtil';
-// eslint-disable-next-line import/order
-import sinon = require('sinon');
-
-AWSMock.setSDKInstance(AWS);
 
 describe('atomicallyReadWriteResources', () => {
-    afterEach(() => {
-        AWSMock.restore();
-        sinon.restore();
+    const dynamoDbMock = mockClient(DynamoDBClient);
+    const id = 'bce8411e-c15e-448c-95dd-69155a837405';
+
+    beforeEach(() => {
+        dynamoDbMock.reset();
     });
 
-    const id = 'bce8411e-c15e-448c-95dd-69155a837405';
+    afterAll(() => {
+        dynamoDbMock.restore();
+    });
+    
     describe('ERROR Cases', () => {
+
         const runTest = async (expectedResponse: BundleResponse) => {
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             const bundleService = new DynamoDbBundleService(dynamoDb);
 
             const deleteRequest: BatchReadWriteRequest = {
@@ -54,8 +55,14 @@ describe('atomicallyReadWriteResources', () => {
 
         test('LOCK: Delete item that does not exist', async () => {
             // READ items (Failure)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 callback(null, { Items: [] });
+            });
+            */
+
+            dynamoDbMock.on(QueryCommand).resolvesOnce({
+                Items: [],
             });
 
             const expectedResponse: BundleResponse = {
@@ -66,14 +73,16 @@ describe('atomicallyReadWriteResources', () => {
             };
 
             await runTest(expectedResponse);
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
         });
 
         test('LOCK: Try to delete item that exist, but system cannot obtain the lock', async () => {
             // READ items (Success)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 callback(null, {
                     Items: [
-                        DynamoDBConverter.marshall({
+                        marshall({
                             id,
                             vid: '1',
                             resourceType: 'Patient',
@@ -87,6 +96,20 @@ describe('atomicallyReadWriteResources', () => {
             AWSMock.mock('DynamoDB', 'transactWriteItems', (params: TransactWriteItemsInput, callback: Function) => {
                 callback('ConditionalCheckFailed', {});
             });
+            */
+
+            dynamoDbMock.on(QueryCommand).resolvesOnce({
+                Items: [
+                    marshall({
+                        id,
+                        vid: '1',
+                        resourceType: 'Patient',
+                        meta: { versionId: '1', lastUpdated: new Date().toISOString() },
+                    }),
+                ],
+            });
+
+            dynamoDbMock.on(TransactWriteItemsCommand).rejectsOnce('ConditionalCheckFailed');
 
             const expectedResponse: BundleResponse = {
                 success: false,
@@ -96,17 +119,21 @@ describe('atomicallyReadWriteResources', () => {
             };
 
             await runTest(expectedResponse);
+
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(TransactWriteItemsCommand, 1);
         });
 
         test('LOCK: One of the DynamoDB transaction fails', async () => {
             // BUILD
 
             // READ items (Success)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 const queryId = params.ExpressionAttributeValues![':hkey'].S;
                 callback(null, {
                     Items: [
-                        DynamoDBConverter.marshall({
+                        marshall({
                             id: queryId,
                             vid: '1',
                             resourceType: 'Patient',
@@ -123,9 +150,30 @@ describe('atomicallyReadWriteResources', () => {
             transactWriteItemsStub.onCall(2).yields(null, {}); // unlock call 1/2
             transactWriteItemsStub.onCall(3).yields(null, {}); // unlock call 2/2
             AWSMock.mock('DynamoDB', 'transactWriteItems', transactWriteItemsStub);
+            */
+
+            dynamoDbMock.on(QueryCommand).callsFake(async (params) => {
+                return {
+                    Items: [
+                        marshall({
+                            id: params.ExpressionAttributeValues![':hkey'].S,
+                            vid: '1',
+                            resourceType: 'Patient',
+                            meta: { versionId: '1', lastUpdated: new Date().toISOString() },
+                        }),
+                    ],
+                }
+            });
+
+            dynamoDbMock
+                .on(TransactWriteItemsCommand)
+                .resolvesOnce({})
+                .rejectsOnce('ConditionalCheckFailed')
+                .resolvesOnce({})
+                .resolvesOnce({});
 
             // OPERATE
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             const bundleService = new DynamoDbBundleService(dynamoDb);
             const actualResponse = await bundleService.transaction({
                 requests: range(0, 26).map((i) => {
@@ -146,14 +194,18 @@ describe('atomicallyReadWriteResources', () => {
                 batchReadWriteResponses: [],
                 errorType: 'SYSTEM_ERROR',
             });
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 26);
+            //The last 2 TransactWriteItemCommand mocks are not used as no records were successfully locked.
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(TransactWriteItemsCommand, 2);
         });
 
         test('STAGING: Item exist and lock obtained, but failed to stage', async () => {
             // READ items (Success)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 callback(null, {
                     Items: [
-                        DynamoDBConverter.marshall({
+                        marshall({
                             id,
                             vid: '1',
                             resourceType: 'Patient',
@@ -176,6 +228,24 @@ describe('atomicallyReadWriteResources', () => {
                 const result = transactWriteItemStub();
                 callback(result?.error || null, result?.value || {});
             });
+            */
+
+            dynamoDbMock.on(QueryCommand).resolvesOnce({
+                Items: [
+                    marshall({
+                        id,
+                        vid: '1',
+                        resourceType: 'Patient',
+                        meta: { versionId: '1', lastUpdated: new Date().toISOString() },
+                    }),
+                ],
+            });
+
+            dynamoDbMock
+                .on(TransactWriteItemsCommand)
+                .resolvesOnce({})
+                .rejectsOnce('ConditionalCheckFailed')
+                .resolvesOnce({});
 
             const expectedResponse: BundleResponse = {
                 success: false,
@@ -185,17 +255,20 @@ describe('atomicallyReadWriteResources', () => {
             };
 
             await runTest(expectedResponse);
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(TransactWriteItemsCommand, 3);
         });
 
         test('STAGING: One of the DynamoDB transaction fails', async () => {
             // BUILD
 
             // READ items (Success)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 const queryId = params.ExpressionAttributeValues![':hkey'].S;
                 callback(null, {
                     Items: [
-                        DynamoDBConverter.marshall({
+                        marshall({
                             id: queryId,
                             vid: '1',
                             resourceType: 'Patient',
@@ -216,9 +289,34 @@ describe('atomicallyReadWriteResources', () => {
             transactWriteItemsStub.onCall(5).yields(null, {}); // unlock call 1/2
             transactWriteItemsStub.onCall(6).yields(null, {}); // unlock call 2/2
             AWSMock.mock('DynamoDB', 'transactWriteItems', transactWriteItemsStub);
+            */
+
+            dynamoDbMock.on(QueryCommand).callsFake(async (params) => {
+                return {
+                    Items: [
+                        marshall({
+                            id: params.ExpressionAttributeValues![':hkey'].S,
+                            vid: '1',
+                            resourceType: 'Patient',
+                            meta: { versionId: '1', lastUpdated: new Date().toISOString() },
+                        }),
+                    ],
+                }
+            });
+
+            dynamoDbMock
+                .on(TransactWriteItemsCommand)
+                .resolvesOnce({})
+                .resolvesOnce({})
+                .resolvesOnce({})
+                .rejectsOnce('ConditionalCheckFailed')
+                .resolvesOnce({})
+                .resolvesOnce({})
+                .resolvesOnce({})
+                .resolvesOnce({});
 
             // OPERATE
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             const bundleService = new DynamoDbBundleService(dynamoDb);
             const actualResponse = await bundleService.transaction({
                 requests: range(0, 26).map((i) => {
@@ -240,19 +338,38 @@ describe('atomicallyReadWriteResources', () => {
                 batchReadWriteResponses: [],
                 errorType: 'SYSTEM_ERROR',
             });
+
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 26);
+            expect(dynamoDbMock).toHaveReceivedCommandTimes(TransactWriteItemsCommand, 6);
         });
     });
 
+
     describe('SUCCESS Cases', () => {
+        const successSandbox = createSandbox();
+
+        afterAll(() => {
+            successSandbox.restore();
+        });
+
         // When creating a resource, no locks is needed because no items in DDB to put a lock on yet
         async function runCreateTest(shouldReqHasReferences: boolean, useVersionedReferences: boolean = false) {
             // BUILD
-            const transactWriteItemSpy = sinon.spy();
+            const getMostRecentResourceStub = successSandbox.stub(DynamoDbHelper.prototype, 'getMostRecentResource');
+            const transactWriteItemSpy = successSandbox.spy();
+
+            /*
             AWSMock.mock('DynamoDB', 'transactWriteItems', (params: TransactWriteItemsInput, callback: Function) => {
                 transactWriteItemSpy(params);
                 callback(null, {});
             });
-            const dynamoDb = new AWS.DynamoDB();
+            */
+            dynamoDbMock.on(TransactWriteItemsCommand).callsFake((params) => {
+                transactWriteItemSpy(params);
+                return Promise.resolve({});
+            });
+
+            const dynamoDb = new DynamoDB();
             let versionedLinks;
             if (useVersionedReferences) {
                 versionedLinks = {
@@ -265,8 +382,7 @@ describe('atomicallyReadWriteResources', () => {
                     meta: { versionId: 3 },
                 };
 
-                sinon
-                    .stub(DynamoDbHelper.prototype, 'getMostRecentResource')
+                getMostRecentResourceStub
                     .withArgs('Organization', '1', 'meta')
                     .returns(Promise.resolve({ message: 'Resource found', resource: organizationResource }));
             }
@@ -331,7 +447,7 @@ describe('atomicallyReadWriteResources', () => {
             }
             insertedResourceJson[LOCK_END_TS_FIELD] = Date.now();
 
-            const insertedResource = DynamoDBConverter.marshall(insertedResourceJson);
+            const insertedResource = marshall(insertedResourceJson);
 
             // Setting up test assertions
             insertedResource.id.S = expect.stringMatching(uuidRegExp);
@@ -371,6 +487,7 @@ describe('atomicallyReadWriteResources', () => {
                     },
                 ],
             });
+
             expect(actualResponse).toStrictEqual({
                 message: 'Successfully committed requests to DB',
                 batchReadWriteResponses: [
@@ -393,7 +510,11 @@ describe('atomicallyReadWriteResources', () => {
                 ],
                 success: true,
             });
+
+            //Turn off the stub
+            getMostRecentResourceStub.restore();
         }
+
         test('CREATING a resource with no references', async () => {
             await runCreateTest(false);
         });
@@ -410,11 +531,12 @@ describe('atomicallyReadWriteResources', () => {
             // BUILD
 
             // READ items (Success)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 const queryId = params.ExpressionAttributeValues![':hkey'].S;
                 callback(null, {
                     Items: [
-                        DynamoDBConverter.marshall({
+                        marshall({
                             id: queryId,
                             vid: '1',
                             resourceType: 'Patient',
@@ -428,9 +550,25 @@ describe('atomicallyReadWriteResources', () => {
             const transactWriteItemsStub = sinon.stub();
             transactWriteItemsStub.yields(null, {});
             AWSMock.mock('DynamoDB', 'transactWriteItems', transactWriteItemsStub);
+            */
+
+            dynamoDbMock.on(QueryCommand).callsFake((params) => {
+                return {
+                    Items: [
+                        marshall({
+                            id: params.ExpressionAttributeValues![':hkey'].S,
+                            vid: '1',
+                            resourceType: 'Patient',
+                            meta: { versionId: '1', lastUpdated: new Date().toISOString() },
+                        }),
+                    ],
+                }
+            });
+
+            dynamoDbMock.on(TransactWriteItemsCommand).resolvesOnce({});
 
             // OPERATE
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             const bundleService = new DynamoDbBundleService(dynamoDb);
             const actualResponse = await bundleService.transaction({
                 requests: range(0, 26).map((i) => {
@@ -454,25 +592,36 @@ describe('atomicallyReadWriteResources', () => {
             });
 
             // CHECK
-            expect(transactWriteItemsStub.callCount).toBe(4);
+            //expect(transactWriteItemsStub.callCount).toBe(4);
+            expect(dynamoDbMock).toReceiveCommandTimes(TransactWriteItemsCommand, 4);
 
             // make sure item was staged, unlocked and returned in the response
+            /*
             const stageRequestItems = transactWriteItemsStub
                 .getCall(0)
                 .args[0].TransactItems.concat(transactWriteItemsStub.getCall(1).args[0].TransactItems);
             const unlockRequestItems = transactWriteItemsStub
                 .getCall(2)
                 .args[0].TransactItems.concat(transactWriteItemsStub.getCall(3).args[0].TransactItems);
+            */
+            const stageRequestItems = dynamoDbMock.commandCall(0, TransactWriteItemsCommand)
+                .args[0].input.TransactItems!.concat(
+                    dynamoDbMock.commandCall(1, TransactWriteItemsCommand).args[0].input.TransactItems!
+                );
+            const unlockRequestItems = dynamoDbMock.commandCall(2, TransactWriteItemsCommand)
+                .args[0].input.TransactItems!.concat(
+                    dynamoDbMock.commandCall(3, TransactWriteItemsCommand).args[0].input.TransactItems!
+                );
 
             range(0, 26).forEach((i) => {
                 expect(
                     stageRequestItems.some((item: TransactWriteItem) => {
-                        return item.Put!.Item.id.S === `${id}-${i}`;
+                        return item.Put!.Item!.id.S === `${id}-${i}`;
                     }),
                 ).toBeTruthy();
                 expect(
                     unlockRequestItems.some((item: TransactWriteItem) => {
-                        return item.Update!.Key.id.S === `${id}-${i}`;
+                        return item.Update!.Key!.id.S === `${id}-${i}`;
                     }),
                 ).toBeTruthy();
 
@@ -490,11 +639,16 @@ describe('atomicallyReadWriteResources', () => {
 
         async function runUpdateTest(shouldReqHasReferences: boolean, useVersionedReferences: boolean = false) {
             // BUILD
+            /*
             const transactWriteItemSpy = sinon.spy();
             AWSMock.mock('DynamoDB', 'transactWriteItems', (params: TransactWriteItemsInput, callback: Function) => {
                 transactWriteItemSpy(params);
                 callback(null, {});
             });
+            */
+            const getMostRecentResourceStub = successSandbox.stub(DynamoDbHelper.prototype, 'getMostRecentResource');           
+            dynamoDbMock.on(TransactWriteItemsCommand).resolvesOnce({});
+
             const resourceType = 'Patient';
             const oldVid = 1;
             const newVid = oldVid + 1;
@@ -523,12 +677,14 @@ describe('atomicallyReadWriteResources', () => {
                 meta: { versionId: newVid.toString(), lastUpdated: new Date().toISOString(), security: 'skynet' },
             };
 
+            /*
             const getMostRecentResourceStub = sinon.stub(DynamoDbHelper.prototype, 'getMostRecentResource');
+            */
             getMostRecentResourceStub
                 .withArgs(resourceType, id, 'id, resourceType, meta')
                 .returns(Promise.resolve({ message: 'Resource found', resource: oldResource }));
 
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             let versionedLinks;
             if (useVersionedReferences) {
                 versionedLinks = {
@@ -545,6 +701,7 @@ describe('atomicallyReadWriteResources', () => {
                     .withArgs('Organization', '1', 'meta')
                     .returns(Promise.resolve({ message: 'Resource found', resource: organizationResource }));
             }
+
             const transactionService = new DynamoDbBundleService(dynamoDb, false, undefined, { versionedLinks });
 
             const updateRequest: BatchReadWriteRequest = {
@@ -562,10 +719,12 @@ describe('atomicallyReadWriteResources', () => {
 
             // CHECK
             // transactWriteItem requests is called thrice
-            expect(transactWriteItemSpy.calledThrice).toBeTruthy();
+            //expect(transactWriteItemSpy.calledThrice).toBeTruthy();
+            expect(dynamoDbMock).toReceiveCommandTimes(TransactWriteItemsCommand, 3);
 
             // 0. change Patient record's documentStatus to be 'LOCKED'
-            expect(transactWriteItemSpy.getCall(0).args[0]).toStrictEqual({
+            //expect(transactWriteItemSpy.getCall(0).args[0]).toStrictEqual({
+            expect(dynamoDbMock.call(0).args[0].input).toStrictEqual({
                 TransactItems: [
                     {
                         Update: {
@@ -608,13 +767,14 @@ describe('atomicallyReadWriteResources', () => {
             }
             insertedResourceJson[LOCK_END_TS_FIELD] = Date.now();
 
-            const insertedResource = DynamoDBConverter.marshall(insertedResourceJson);
+            const insertedResource = marshall(insertedResourceJson);
             insertedResource.lockEndTs.N = expect.stringMatching(timeFromEpochInMsRegExp);
             insertedResource.meta!.M!.lastUpdated.S = expect.stringMatching(utcTimeRegExp);
             insertedResource.meta!.M!.versionId.S = newVid.toString();
 
             // 1. create new Patient record with documentStatus of 'PENDING'
-            expect(transactWriteItemSpy.getCall(1).args[0]).toStrictEqual({
+            //expect(transactWriteItemSpy.getCall(1).args[0]).toStrictEqual({
+            expect(dynamoDbMock.call(1).args[0].input).toStrictEqual({
                 TransactItems: [
                     {
                         Put: {
@@ -626,7 +786,8 @@ describe('atomicallyReadWriteResources', () => {
             });
 
             // 2. change Patient record's documentStatus to be 'AVAILABLE'
-            expect(transactWriteItemSpy.getCall(2).args[0]).toStrictEqual({
+            //expect(transactWriteItemSpy.getCall(2).args[0]).toStrictEqual({
+            expect(dynamoDbMock.call(2).args[0].input).toStrictEqual({
                 TransactItems: [
                     {
                         Update: {
@@ -688,6 +849,9 @@ describe('atomicallyReadWriteResources', () => {
                 ],
                 success: true,
             });
+
+            //turn off the Sinon stub
+            getMostRecentResourceStub.restore();
         }
 
         test('UPDATING a resource with no references', async () => {
@@ -706,11 +870,12 @@ describe('atomicallyReadWriteResources', () => {
             // BUILD
 
             // READ items (Success)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 const queryId = params.ExpressionAttributeValues![':hkey'].S;
                 callback(null, {
                     Items: [
-                        DynamoDBConverter.marshall({
+                        marshall({
                             id: queryId,
                             vid: 1,
                             resourceType: 'Patient',
@@ -724,9 +889,24 @@ describe('atomicallyReadWriteResources', () => {
             const transactWriteItemsStub = sinon.stub();
             transactWriteItemsStub.yields(null, {}); // all calls succeed
             AWSMock.mock('DynamoDB', 'transactWriteItems', transactWriteItemsStub);
+            */
+
+            dynamoDbMock.on(QueryCommand).callsFake((params) => {
+                return {
+                    Items: [
+                        marshall({
+                            id: params.ExpressionAttributeValues![':hkey'].S,
+                            vid: 1,
+                            resourceType: 'Patient',
+                            meta: { versionId: 1, lastUpdated: new Date().toISOString() },
+                        }),
+                    ],
+                }
+            });
+            dynamoDbMock.on(TransactWriteItemsCommand).resolves({});
 
             // OPERATE
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             const bundleService = new DynamoDbBundleService(dynamoDb);
             const actualResponse = await bundleService.transaction({
                 requests: range(0, 26).map((i) => {
@@ -754,11 +934,13 @@ describe('atomicallyReadWriteResources', () => {
             // [0,1] = lock
             // [2,3] = pending
             // [4,6] = DELETE vid 1 & AVAILABLE vid 2
-            expect(transactWriteItemsStub.callCount).toBe(7);
+            //expect(transactWriteItemsStub.callCount).toBe(7);
+            expect(dynamoDbMock).toReceiveCommandTimes(TransactWriteItemsCommand, 7);
 
             // there's no guarantee on which ddb transaction the BatchReadWriteRequest is processed in
 
             // check every item is locked, adds pending & delete/makes available new version
+            /*
             const lockRequestItems = transactWriteItemsStub
                 .getCall(0)
                 .args[0].TransactItems.concat(transactWriteItemsStub.getCall(1).args[0].TransactItems);
@@ -769,20 +951,30 @@ describe('atomicallyReadWriteResources', () => {
                 .getCall(4)
                 .args[0].TransactItems.concat(transactWriteItemsStub.getCall(5).args[0].TransactItems)
                 .concat(transactWriteItemsStub.getCall(6).args[0].TransactItems);
+            */
+
+            const lockRequestItems = dynamoDbMock.commandCall(0, TransactWriteItemsCommand)
+                .args[0].input.TransactItems!.concat(dynamoDbMock.commandCall(1, TransactWriteItemsCommand).args[0].input.TransactItems!);
+            const stageRequestItems = dynamoDbMock.commandCall(2, TransactWriteItemsCommand)
+                .args[0].input.TransactItems!.concat(dynamoDbMock.commandCall(3, TransactWriteItemsCommand).args[0].input.TransactItems!);
+            const unlockRequestItems = dynamoDbMock.commandCall(4, TransactWriteItemsCommand)
+                .args[0].input.TransactItems!.concat(dynamoDbMock.commandCall(5, TransactWriteItemsCommand).args[0].input.TransactItems!)
+                .concat(dynamoDbMock.commandCall(6, TransactWriteItemsCommand).args[0].input.TransactItems!);
+
             range(0, 26).forEach((i) => {
                 expect(
                     lockRequestItems.some((item: TransactWriteItem) => {
-                        return item.Update!.Key.id.S === `${id}-${i}`;
+                        return item.Update!.Key!.id.S === `${id}-${i}`;
                     }),
                 ).toBeTruthy();
                 expect(
                     stageRequestItems.some((item: TransactWriteItem) => {
-                        return item.Put!.Item.id.S === `${id}-${i}`;
+                        return item.Put!.Item!.id.S === `${id}-${i}`;
                     }),
                 ).toBeTruthy();
                 expect(
                     unlockRequestItems.some((item: TransactWriteItem) => {
-                        return item.Update!.Key.id.S === `${id}-${i}`;
+                        return item.Update!.Key!.id.S === `${id}-${i}`;
                     }),
                 ).toBeTruthy();
 
@@ -800,13 +992,17 @@ describe('atomicallyReadWriteResources', () => {
     });
 
     describe('Update as Create Cases', () => {
+
         const runTest = async (supportUpdateCreate: boolean, operation: TypeOperation, isLockSuccessful: boolean) => {
             // READ items (Failure)
+            /*
             AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
                 callback(null, { Items: [] });
             });
+            */
+            dynamoDbMock.on(QueryCommand).resolvesOnce({ Items: [] });
 
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             const bundleService = new DynamoDbBundleService(dynamoDb, supportUpdateCreate);
 
             const batchRequest: BatchReadWriteRequest = {
@@ -853,17 +1049,35 @@ describe('atomicallyReadWriteResources', () => {
     const apiUrl = 'https://patient.ia/fhir';
 
     describe('Bundle transaction with multiple resources', () => {
+        const successSandbox = createSandbox();
+        let getMostRecentResourceStub: SinonStub;
+
+        beforeAll(() => {
+            getMostRecentResourceStub = successSandbox.stub(DynamoDbHelper.prototype, 'getMostRecentResource');
+        });
+
+        afterAll(() => {
+            successSandbox.restore();
+        });
+
         async function runTransaction(
             useVersionedReferences: boolean,
             supportUpdateCreate: boolean,
             errorFindingLatestVersion: boolean,
         ) {
             // BUILD
-            const transactWriteItemSpy = sinon.spy();
+            const transactWriteItemSpy = spy();
+            /*
             AWSMock.mock('DynamoDB', 'transactWriteItems', (params: TransactWriteItemsInput, callback: Function) => {
                 transactWriteItemSpy(params);
                 callback(null, {});
             });
+            */
+            dynamoDbMock.on(TransactWriteItemsCommand).callsFake((params) => {
+                transactWriteItemSpy(params);
+                return {};
+            });
+
             // new organization, create
             const managingOrgId = 'org1';
             const managingOrgResource = {
@@ -918,7 +1132,7 @@ describe('atomicallyReadWriteResources', () => {
                 },
                 meta: { versionId: '1', lastUpdated: new Date().toISOString() },
             };
-            const getMostRecentResourceStub = sinon.stub(DynamoDbHelper.prototype, 'getMostRecentResource');
+
             if (supportUpdateCreate) {
                 // in the update as create scenario the managing org looks like an update, so we try to get the most recent version
                 getMostRecentResourceStub
@@ -930,7 +1144,7 @@ describe('atomicallyReadWriteResources', () => {
                 .withArgs('Practitioner', practitionerId, 'id, resourceType, meta')
                 .returns(Promise.resolve({ message: 'Resource found', resource: oldPractitionerResource }));
 
-            const dynamoDb = new AWS.DynamoDB();
+            const dynamoDb = new DynamoDB();
             let versionedLinks;
             if (useVersionedReferences) {
                 versionedLinks = {
@@ -951,6 +1165,7 @@ describe('atomicallyReadWriteResources', () => {
                         .returns(Promise.resolve({ message: 'Resource found', resource: contactOrgResource }));
                 }
             }
+
             const transactionService = new DynamoDbBundleService(dynamoDb, supportUpdateCreate, undefined, {
                 versionedLinks,
             });

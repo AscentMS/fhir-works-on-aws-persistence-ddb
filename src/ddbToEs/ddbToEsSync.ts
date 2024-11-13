@@ -3,16 +3,19 @@
  *  SPDX-License-Identifier: Apache-2.0
  *
  */
+import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { Client } from '@opensearch-project/opensearch';
 
-import { Client } from '@elastic/elasticsearch';
-import AWS from 'aws-sdk';
 import DdbToEsHelper from './ddbToEsHelper';
 import ESBulkCommand from './ESBulkCommand';
 import getComponentLogger from '../loggerBuilder';
+import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const logger = getComponentLogger();
 
 const BINARY_RESOURCE = 'binary';
+
+type AttributeMap = { [key: string]: AttributeValue };
 
 function isBinaryResource(image: any): boolean {
     const resourceType = image.resourceType.toLowerCase();
@@ -76,7 +79,7 @@ export class DdbToEsSync {
 
                 const removeResource = this.ddbToEsHelper.isRemoveResource(record);
                 const ddbJsonImage = removeResource ? record.dynamodb.OldImage : record.dynamodb.NewImage;
-                const image = AWS.DynamoDB.Converter.unmarshall(ddbJsonImage);
+                const image = unmarshall(ddbJsonImage);
                 logger.debug(image);
                 // Don't index binary files
                 if (isBinaryResource(image)) {
@@ -113,7 +116,7 @@ export class DdbToEsSync {
                 event.Records.map(
                     (record: {
                         eventName: string;
-                        dynamodb: { OldImage: AWS.DynamoDB.AttributeMap; NewImage: AWS.DynamoDB.AttributeMap };
+                        dynamodb: { OldImage: AttributeMap; NewImage: AttributeMap };
                     }) => {
                         const image = this.ddbToEsHelper.isRemoveResource(record)
                             ? record.dynamodb.OldImage

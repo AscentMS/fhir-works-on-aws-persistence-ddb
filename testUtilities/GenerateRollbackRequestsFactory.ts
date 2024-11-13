@@ -3,8 +3,8 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import uuidv4 from 'uuid/v4';
-import { BatchReadWriteResponse, TypeOperation } from 'fhir-works-on-aws-interface';
+import { v4 } from 'uuid';
+import { BatchReadWriteResponse, TypeOperation } from '@ascentms/fhir-works-on-aws-interface';
 import DynamoDbParamBuilder from '../src/dataServices/dynamoDbParamBuilder';
 
 export default class GenerateRollbackRequestsFactory {
@@ -38,7 +38,7 @@ export default class GenerateRollbackRequestsFactory {
                 gender: 'female',
             };
         }
-        const id = uuidv4();
+        const id = v4();
         const resourceType = 'Patient';
         const bundleEntryResponse: BatchReadWriteResponse = {
             id,

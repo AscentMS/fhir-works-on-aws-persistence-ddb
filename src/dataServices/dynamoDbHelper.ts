@@ -3,10 +3,10 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import DynamoDB, { ItemList } from 'aws-sdk/clients/dynamodb';
-import { GenericResponse, ResourceNotFoundError } from 'fhir-works-on-aws-interface';
+import { AttributeValue, DynamoDB, QueryCommandOutput } from '@aws-sdk/client-dynamodb';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { GenericResponse, ResourceNotFoundError } from '@ascentms/fhir-works-on-aws-interface';
 import DynamoDbParamBuilder from './dynamoDbParamBuilder';
-import { DynamoDBConverter } from './dynamoDb';
 import DOCUMENT_STATUS from './documentStatus';
 import { DOCUMENT_STATUS_FIELD, DynamoDbUtil } from './dynamoDbUtil';
 
@@ -23,7 +23,7 @@ export default class DynamoDbHelper {
         maxNumberOfVersionsToGet: number,
         projectionExpression?: string,
         tenantId?: string,
-    ): Promise<ItemList> {
+    ): Promise<Record<string, any>> {
         const params = DynamoDbParamBuilder.buildGetResourcesQueryParam(
             id,
             resourceType,
@@ -31,9 +31,9 @@ export default class DynamoDbHelper {
             projectionExpression,
             tenantId,
         );
-        let result: any = {};
+        let result: QueryCommandOutput;
         try {
-            result = await this.dynamoDb.query(params).promise();
+            result = await this.dynamoDb.query(params);
         } catch (e) {
             if ((e as any).code === 'ConditionalCheckFailedException') {
                 throw new ResourceNotFoundError(resourceType, id);
@@ -42,7 +42,7 @@ export default class DynamoDbHelper {
         }
 
         const items = result.Items
-            ? result.Items.map((ddbJsonItem: any) => DynamoDBConverter.unmarshall(ddbJsonItem))
+            ? result.Items.map((ddbJsonItem: Record<string, AttributeValue>) => unmarshall(ddbJsonItem))
             : [];
         if (items.length === 0) {
             throw new ResourceNotFoundError(resourceType, id);
@@ -74,7 +74,7 @@ export default class DynamoDbHelper {
         tenantId?: string,
     ): Promise<GenericResponse> {
         const items = await this.getMostRecentResources(resourceType, id, 2, undefined, tenantId);
-        const latestItemDocStatus: DOCUMENT_STATUS = <DOCUMENT_STATUS>items[0][DOCUMENT_STATUS_FIELD];
+        const latestItemDocStatus: DOCUMENT_STATUS = items[0][DOCUMENT_STATUS_FIELD] as unknown as DOCUMENT_STATUS;
         if (latestItemDocStatus === DOCUMENT_STATUS.DELETED) {
             throw new ResourceNotFoundError(resourceType, id);
         }

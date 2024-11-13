@@ -4,9 +4,11 @@
  *
  */
 
-import { STS } from 'aws-sdk';
+import { STS } from '@aws-sdk/client-sts';
 import { BulkExportResultsUrlGenerator } from './bulkExportResultsUrlGenerator';
-import AWS from '../AWS';
+import { GetObjectCommand, S3 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
 
 const EXPIRATION_TIME_SECONDS = 1800;
 const EXPORT_CONTENT_TYPE = 'application/fhir+ndjson';
@@ -16,7 +18,7 @@ export class BulkExportS3PresignedUrlGenerator implements BulkExportResultsUrlGe
     private readonly stsClient: STS;
 
     constructor() {
-        this.stsClient = new AWS.STS();
+        this.stsClient = new STS();
     }
 
     async getUrls({ s3Keys, exportBucket }: { exportBucket: string; s3Keys: string[] }) {
@@ -25,25 +27,29 @@ export class BulkExportS3PresignedUrlGenerator implements BulkExportResultsUrlGe
                 RoleArn: EXPORT_RESULTS_SIGNER_ROLE_ARN,
                 RoleSessionName: 'signBulkExportResults',
                 DurationSeconds: EXPIRATION_TIME_SECONDS,
-            })
-            .promise();
+            });
 
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             credentials: {
-                accessKeyId: assumeRoleResponse.Credentials!.AccessKeyId,
-                secretAccessKey: assumeRoleResponse.Credentials!.SecretAccessKey,
+                accessKeyId: assumeRoleResponse.Credentials!.AccessKeyId!,
+                secretAccessKey: assumeRoleResponse.Credentials!.SecretAccessKey!,
                 sessionToken: assumeRoleResponse.Credentials!.SessionToken,
             },
         });
 
         const urls: string[] = await Promise.all(
             s3Keys.map(async (key) =>
-                s3.getSignedUrlPromise('getObject', {
-                    Bucket: exportBucket,
-                    Key: key,
-                    Expires: EXPIRATION_TIME_SECONDS,
-                    ResponseContentType: EXPORT_CONTENT_TYPE,
-                }),
+                getSignedUrl(
+                    s3,
+                    new GetObjectCommand({
+                        Bucket: exportBucket,
+                        Key: key,
+                        ResponseContentType: EXPORT_CONTENT_TYPE
+                    }),
+                    {
+                        expiresIn: EXPIRATION_TIME_SECONDS
+                    }
+                ),
             ),
         );
 

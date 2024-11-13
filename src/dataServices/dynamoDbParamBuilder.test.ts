@@ -4,7 +4,7 @@
  */
 
 import { cloneDeep } from 'lodash';
-import { InitiateExportRequest } from 'fhir-works-on-aws-interface';
+import { InitiateExportRequest } from '@ascentms/fhir-works-on-aws-interface';
 import DynamoDbParamBuilder from './dynamoDbParamBuilder';
 import DOCUMENT_STATUS from './documentStatus';
 import { timeFromEpochInMsRegExp, utcTimeRegExp } from '../../testUtilities/regExpressions';
@@ -150,31 +150,31 @@ describe('buildUpdateDocumentStatusParam', () => {
                 },
             },
             `
-            Object {
-              "Update": Object {
+            {
+              "Update": {
                 "ConditionExpression": "resourceType = :resourceType",
-                "ExpressionAttributeNames": Object {
+                "ExpressionAttributeNames": {
                   "#subscriptionStatus": "_subscriptionStatus",
                 },
-                "ExpressionAttributeValues": Object {
-                  ":futureEndTs": Object {
+                "ExpressionAttributeValues": {
+                  ":futureEndTs": {
                     "N": StringMatching /\\\\d\\{13\\}/,
                   },
-                  ":newStatus": Object {
+                  ":newStatus": {
                     "S": "AVAILABLE",
                   },
-                  ":resourceType": Object {
+                  ":resourceType": {
                     "S": "Subscription",
                   },
-                  ":subscriptionStatus": Object {
+                  ":subscriptionStatus": {
                     "S": "active",
                   },
                 },
-                "Key": Object {
-                  "id": Object {
+                "Key": {
+                  "id": {
                     "S": "8cafa46d-08b4-4ee4-b51b-803e20ae8126",
                   },
-                  "vid": Object {
+                  "vid": {
                     "N": "1",
                   },
                 },
@@ -524,15 +524,15 @@ describe('buildGetActiveSubscriptions', () => {
     test('tenantId present', () => {
         const actualParam = DynamoDbParamBuilder.buildGetActiveSubscriptions('tenant1');
         expect(actualParam).toMatchInlineSnapshot(`
-            Object {
-              "ExpressionAttributeNames": Object {
+            {
+              "ExpressionAttributeNames": {
                 "#subscriptionStatus": "_subscriptionStatus",
               },
-              "ExpressionAttributeValues": Object {
-                ":active": Object {
+              "ExpressionAttributeValues": {
+                ":active": {
                   "S": "active",
                 },
-                ":tenantId": Object {
+                ":tenantId": {
                   "S": "tenant1",
                 },
               },

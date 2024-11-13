@@ -1,4 +1,4 @@
-import { makeLogger } from 'fhir-works-on-aws-interface';
+import { makeLogger } from '@ascentms/fhir-works-on-aws-interface';
 
 const componentLogger = makeLogger({
     component: 'persistence',

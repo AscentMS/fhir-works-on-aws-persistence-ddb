@@ -115,10 +115,10 @@ describe('DdbToEsSync', () => {
 
         await ddbToEsSync.handleDDBStreamEvent(EVENT);
         expect(ddbHelperCreateIndexAndAliasIfNotExistMock.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
+            [
+              [
+                [
+                  {
                     "alias": "patient-alias",
                     "index": "patient",
                   },
@@ -128,19 +128,19 @@ describe('DdbToEsSync', () => {
         `);
 
         expect(ddbHelperExecuteEsCmds.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
-                    "bulkCommand": Array [
-                      Object {
-                        "update": Object {
+            [
+              [
+                [
+                  {
+                    "bulkCommand": [
+                      {
+                        "update": {
                           "_id": "b75eef29-4d3b-4454-ba27-6436e55d6a29_1",
                           "_index": "patient-alias",
                         },
                       },
-                      Object {
-                        "doc": Object {
+                      {
+                        "doc": {
                           "documentStatus": "AVAILABLE",
                           "id": "b75eef29-4d3b-4454-ba27-6436e55d6a29",
                           "resourceType": "Patient",
@@ -163,10 +163,10 @@ describe('DdbToEsSync', () => {
 
         await ddbToEsSync.handleDDBStreamEvent(EVENT_MULTITENANCY);
         expect(ddbHelperCreateIndexAndAliasIfNotExistMock.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
+            [
+              [
+                [
+                  {
                     "alias": "patient-alias-tenant-tenant1",
                     "index": "patient",
                   },
@@ -176,19 +176,19 @@ describe('DdbToEsSync', () => {
         `);
 
         expect(ddbHelperExecuteEsCmds.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
-                    "bulkCommand": Array [
-                      Object {
-                        "update": Object {
+            [
+              [
+                [
+                  {
+                    "bulkCommand": [
+                      {
+                        "update": {
                           "_id": "tenant1_b75eef29-4d3b-4454-ba27-6436e55d6a29_1",
                           "_index": "patient-alias-tenant-tenant1",
                         },
                       },
-                      Object {
-                        "doc": Object {
+                      {
+                        "doc": {
                           "_id": undefined,
                           "_tenantId": "tenant1",
                           "documentStatus": "AVAILABLE",
@@ -214,20 +214,20 @@ describe('DdbToEsSync', () => {
         await ddbToEsSync.handleDDBStreamEvent(EVENT);
         await ddbToEsSync.handleDDBStreamEvent(EVENT);
         expect(ddbHelperCreateIndexAndAliasIfNotExistMock.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
+            [
+              [
+                [
+                  {
                     "alias": "patient-alias",
                     "index": "patient",
                   },
                 ],
               ],
-              Array [
-                Array [],
+              [
+                [],
               ],
-              Array [
-                Array [],
+              [
+                [],
               ],
             ]
         `);
@@ -244,10 +244,10 @@ describe('DdbToEsSync', () => {
         const ddbToEsSync = new DdbToEsSync({ getAliasFn: () => ({ alias: 'alias-xxxxx', index: 'index-xxxx' }) });
         await ddbToEsSync.handleDDBStreamEvent(EVENT);
         expect(ddbHelperCreateIndexAndAliasIfNotExistMock.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
+            [
+              [
+                [
+                  {
                     "alias": "alias-xxxxx",
                     "index": "index-xxxx",
                   },
@@ -256,19 +256,19 @@ describe('DdbToEsSync', () => {
             ]
         `);
         expect(ddbHelperExecuteEsCmds.mock.calls).toMatchInlineSnapshot(`
-            Array [
-              Array [
-                Array [
-                  Object {
-                    "bulkCommand": Array [
-                      Object {
-                        "update": Object {
+            [
+              [
+                [
+                  {
+                    "bulkCommand": [
+                      {
+                        "update": {
                           "_id": "b75eef29-4d3b-4454-ba27-6436e55d6a29_1",
                           "_index": "alias-xxxxx",
                         },
                       },
-                      Object {
-                        "doc": Object {
+                      {
+                        "doc": {
                           "documentStatus": "AVAILABLE",
                           "id": "b75eef29-4d3b-4454-ba27-6436e55d6a29",
                           "resourceType": "Patient",

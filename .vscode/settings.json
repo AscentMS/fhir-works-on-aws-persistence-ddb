@@ -1,0 +1,6 @@
+{
+    "mocha.enabled": false,
+    "jest.jestCommandLine": "node_modules\\.bin\\jest --runInBand --forceExit",
+    "jest.runMode": "on-demand",
+    "jest.monitorLongRun": "off"
+}

@@ -3,7 +3,14 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import { GenericResponse } from 'fhir-works-on-aws-interface';
+import { GenericResponse } from '@ascentms/fhir-works-on-aws-interface';
+import { GetObjectCommand, PutObjectCommand, ServerSideEncryption } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
+import { getSignedUrl, S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
+import { HttpRequest } from '@smithy/protocol-http';
+import { parseUrl } from '@smithy/url-parser';
+import { formatUrl } from '@aws-sdk/util-format-url';
+
 import { S3, FHIR_BINARY_BUCKET, S3_KMS_KEY } from './s3';
 import ObjectStorageInterface from './objectStorageInterface';
 import ObjectNotFoundError from './ObjectNotFoundError';
@@ -12,7 +19,7 @@ import getComponentLogger from '../loggerBuilder';
 const logger = getComponentLogger();
 
 const S3ObjectStorageService: ObjectStorageInterface = class {
-    static SSE_ALGORITHM = 'aws:kms';
+    static SSE_ALGORITHM = ServerSideEncryption.aws_kms;
 
     static PRESIGNED_URL_EXPIRATION_IN_SECONDS = 300;
 
@@ -32,8 +39,14 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
         };
 
         try {
-            const { Key } = await S3.upload(params).promise();
-            return { message: Key };
+            const parallelUploads = new Upload({
+                client: S3,
+                params: params
+            });
+
+            const response = await parallelUploads.done();
+
+            return { message: response.Key ? response.Key : 'undefined' };
         } catch (e) {
             const message = 'Failed uploading binary data to S3';
             logger.error(message, e);
@@ -48,9 +61,9 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
         };
 
         try {
-            const object = await S3.getObject(params).promise();
+            const object = await S3.getObject(params);
             if (object.Body) {
-                const base64Data = object.Body.toString('base64');
+                const base64Data = await object.Body.transformToString('base64');
                 return { message: base64Data };
             }
             throw new Error('S3 object body is empty');
@@ -67,18 +80,35 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
             Key: fileName,
         };
         logger.info('Delete Params', params);
-        await S3.deleteObject(params).promise();
+        await S3.deleteObject(params);
         return { message: '' };
     }
 
     static async getPresignedPutUrl(fileName: string): Promise<GenericResponse> {
-        const url = await S3.getSignedUrlPromise('putObject', {
+        /*
+        const url = await new getSignedUrl('putObject', {
             Bucket: FHIR_BINARY_BUCKET,
             Key: fileName,
             Expires: this.PRESIGNED_URL_EXPIRATION_IN_SECONDS,
             ServerSideEncryption: this.SSE_ALGORITHM,
             SSEKMSKeyId: S3_KMS_KEY,
         });
+        */
+
+        const url = await getSignedUrl(
+            S3, 
+            new PutObjectCommand(
+                {
+                    Bucket: FHIR_BINARY_BUCKET,
+                    Key: fileName,
+                    ServerSideEncryption: this.SSE_ALGORITHM,
+                    SSEKMSKeyId: S3_KMS_KEY
+                }
+            ),
+            {
+                expiresIn: this.PRESIGNED_URL_EXPIRATION_IN_SECONDS,
+            }
+        );
         return { message: url };
     }
 
@@ -88,18 +118,25 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
             await S3.headObject({
                 Bucket: FHIR_BINARY_BUCKET,
                 Key: fileName,
-            }).promise();
+            });
         } catch (e) {
             logger.error(`File does not exist. FileName: ${fileName}`);
             throw new ObjectNotFoundError(fileName);
         }
 
         try {
-            const url = await S3.getSignedUrlPromise('getObject', {
-                Bucket: FHIR_BINARY_BUCKET,
-                Key: fileName,
-                Expires: this.PRESIGNED_URL_EXPIRATION_IN_SECONDS,
-            });
+            const url = await getSignedUrl(
+                S3, 
+                new GetObjectCommand(
+                    {
+                        Bucket: FHIR_BINARY_BUCKET,
+                        Key: fileName
+                    }
+                ),
+                {
+                    expiresIn: this.PRESIGNED_URL_EXPIRATION_IN_SECONDS,
+                }
+            );
             return { message: url };
         } catch (e) {
             logger.error('Failed creating presigned S3 GET URL', e);
@@ -117,7 +154,7 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
                 ContinuationToken: token,
             };
             // eslint-disable-next-line no-await-in-loop
-            const results = await S3.listObjectsV2(listParams).promise();
+            const results = await S3.listObjectsV2(listParams);
             const contents = results.Contents || [];
             token = results.ContinuationToken;
             const keysToDelete: any[] = contents.map((content) => {
@@ -130,7 +167,7 @@ const S3ObjectStorageService: ObjectStorageInterface = class {
                 },
             };
             logger.info('Delete Params', params);
-            promises.push(S3.deleteObjects(params).promise());
+            promises.push(S3.deleteObjects(params));
         } while (token);
 
         try {

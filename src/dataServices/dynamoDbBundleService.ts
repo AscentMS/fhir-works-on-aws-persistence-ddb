@@ -4,7 +4,7 @@
  */
 
 /* eslint-disable class-methods-use-this */
-import DynamoDB from 'aws-sdk/clients/dynamodb';
+import { DynamoDB, TransactGetItem, TransactWriteItem  } from '@aws-sdk/client-dynamodb';
 import {
     BatchRequest,
     TransactionRequest,
@@ -16,7 +16,7 @@ import {
     chunkArray,
     ResourceNotFoundError,
     GenericResponse,
-} from 'fhir-works-on-aws-interface';
+} from '@ascentms/fhir-works-on-aws-interface';
 import flatten from 'flat';
 import { chunk, set } from 'lodash';
 import mapValues from 'lodash/mapValues';
@@ -108,7 +108,7 @@ export class DynamoDbBundleService implements Bundle {
                 batchReadWriteResponses: [],
             };
         }
-        if (requests.length > this.maxBatchSize) {
+        if (requests.length > (this.maxBatchSize as number)) {
             return {
                 success: false,
                 errorType: 'USER_ERROR',
@@ -383,8 +383,7 @@ export class DynamoDbBundleService implements Bundle {
                     return this.dynamoDb
                         .transactWriteItems({
                             TransactItems: items,
-                        })
-                        .promise();
+                        });
                 });
                 await Promise.all(lockRequests);
                 itemsLockedSuccessfully = itemsLockedSuccessfully.concat(lockedItems);
@@ -453,7 +452,7 @@ export class DynamoDbBundleService implements Bundle {
             })
             .flatMap((request: BatchReadWriteRequest) => {
                 const { resource } = request;
-                return Object.entries(flatten(resource)).map((entry) => {
+                return Object.entries<unknown>(flatten(resource)).map((entry) => {
                     return {
                         resource: request.resource,
                         resourceType: request.resourceType,
@@ -567,7 +566,7 @@ export class DynamoDbBundleService implements Bundle {
         for (let i = 0; i < params.length; i += 1) {
             try {
                 // eslint-disable-next-line no-await-in-loop
-                await this.dynamoDb.transactWriteItems(params[i]).promise();
+                await this.dynamoDb.transactWriteItems(params[i]);
             } catch (e) {
                 logger.error('Failed to unlock items', e);
                 let locksFailedToRelease: ItemRequest[] = [];
@@ -604,9 +603,8 @@ export class DynamoDbBundleService implements Bundle {
                 // @ts-ignore
                 return this.dynamoDb
                     .transactWriteItems({
-                        TransactItems: items,
-                    })
-                    .promise();
+                        TransactItems: items as TransactWriteItem[]
+                    });
             });
             await Promise.all(writeRequests);
             return newLockedItems;
@@ -661,8 +659,7 @@ export class DynamoDbBundleService implements Bundle {
                     return this.dynamoDb
                         .transactWriteItems({
                             TransactItems: items,
-                        })
-                        .promise();
+                        });
                 });
                 await Promise.all(writeChunkRequests);
             }
@@ -676,9 +673,8 @@ export class DynamoDbBundleService implements Bundle {
                     // @ts-ignore
                     return this.dynamoDb
                         .transactGetItems({
-                            TransactItems: items,
-                        })
-                        .promise();
+                            TransactItems: items as TransactGetItem[],
+                        });
                 });
                 const readResults = await Promise.all(readChunkRequests);
                 readResults.forEach((readResult) => {

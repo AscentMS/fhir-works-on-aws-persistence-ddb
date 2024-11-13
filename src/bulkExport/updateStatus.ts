@@ -4,10 +4,10 @@
  */
 
 import { Handler } from 'aws-lambda';
-import { ExportJobStatus } from 'fhir-works-on-aws-interface';
-import AWS from '../AWS';
+import { ExportJobStatus } from '@ascentms/fhir-works-on-aws-interface';
 import DynamoDbParamBuilder from '../dataServices/dynamoDbParamBuilder';
 import { BulkExportStateMachineGlobalParameters } from './types';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 
 const EXPORT_JOB_STATUS = ['completed', 'failed', 'in-progress', 'canceled', 'canceling'];
 const isJobStatus = (x: string): x is ExportJobStatus => EXPORT_JOB_STATUS.includes(x);
@@ -20,9 +20,8 @@ export const updateStatusStatusHandler: Handler<
     if (!isJobStatus(status)) {
         throw new Error(`Invalid status "${event.status}"`);
     }
-    await new AWS.DynamoDB()
+    await new DynamoDB()
         .updateItem(
             DynamoDbParamBuilder.buildUpdateExportRequestJobStatus(globalParams.jobId, status, globalParams.tenantId),
-        )
-        .promise();
+        );
 };

@@ -1,21 +1,46 @@
-import { Client } from '@elastic/elasticsearch';
-
+import { Client } from '@elastic/elasticsearch'; //Mocking doesn't work with the Opensearch client. It just hangs. 
 import Mock from '@elastic/elasticsearch-mock';
 
 import DdbToEsHelper from './ddbToEsHelper';
 import ESBulkCommand from './ESBulkCommand';
 
+const localOpenSearchClusterUrl = new URL('https://localhost:9200');
+localOpenSearchClusterUrl.username = 'admin';
+localOpenSearchClusterUrl.password = 'Testing987##';
+
 const ddbToEsHelper = new DdbToEsHelper();
+
+jest.setTimeout(30000);
 
 describe('DdbToEsHelper', () => {
     let esMock: Mock;
+    beforeAll(() => {
+        process.env.OFF_LINE = 'true';
+    });
+
     beforeEach(() => {
         esMock = new Mock();
+        /* settings for testing against a local instance of Opensearch running in a Docker
         ddbToEsHelper.ElasticSearch = new Client({
-            node: 'https://fake-es-endpoint.com',
-            Connection: esMock.getConnection(),
+            node: {
+                url: localOpenSearchClusterUrl,
+                ssl: {
+                    rejectUnauthorized: false,  //turn off rejection of mismatched certificate when hosting on localhost.
+                }
+            }
         });
+        */
+        ddbToEsHelper.ElasticSearch = new Client({
+            Connection: esMock.getConnection() as any,
+            node: {
+                url: new URL('http://localhost:9200'),
+            },
+            nodeFilter: () => {
+                return true;
+            },
+        }) as any;
     });
+
     afterEach(() => {
         esMock.clearAll();
     });
@@ -69,6 +94,7 @@ describe('DdbToEsHelper', () => {
                 },
                 mockExists,
             );
+
             // TEST
             await ddbToEsHelper.createIndexAndAliasIfNotExist([{ index: 'patient', alias: 'patient-alias' }]);
             // VALIDATE
@@ -303,44 +329,46 @@ describe('DdbToEsHelper', () => {
             // BUILD
             const mockBulk = jest.fn(() => {
                 return {
-                    took: 30,
-                    errors: false,
-                    items: [
-                        {
-                            delete: {
-                                _index: 'patient',
-                                _type: '_doc',
-                                _id: '2',
-                                _version: 1,
-                                result: 'not_found',
-                                _shards: {
-                                    total: 2,
-                                    successful: 1,
-                                    failed: 0,
+                    body: {
+                        took: 30,
+                        errors: false,
+                        items: [
+                            {
+                                delete: {
+                                    _index: 'patient',
+                                    _type: '_doc',
+                                    _id: '2',
+                                    _version: 1,
+                                    result: 'not_found',
+                                    _shards: {
+                                        total: 2,
+                                        successful: 1,
+                                        failed: 0,
+                                    },
+                                    status: 404,
+                                    _seq_no: 1,
+                                    _primary_term: 2,
                                 },
-                                status: 404,
-                                _seq_no: 1,
-                                _primary_term: 2,
                             },
-                        },
-                        {
-                            update: {
-                                _index: 'patient',
-                                _type: '_doc',
-                                _id: '1',
-                                _version: 2,
-                                result: 'updated',
-                                _shards: {
-                                    total: 2,
-                                    successful: 1,
-                                    failed: 0,
+                            {
+                                update: {
+                                    _index: 'patient',
+                                    _type: '_doc',
+                                    _id: '1',
+                                    _version: 2,
+                                    result: 'updated',
+                                    _shards: {
+                                        total: 2,
+                                        successful: 1,
+                                        failed: 0,
+                                    },
+                                    status: 200,
+                                    _seq_no: 3,
+                                    _primary_term: 4,
                                 },
-                                status: 200,
-                                _seq_no: 3,
-                                _primary_term: 4,
                             },
-                        },
-                    ],
+                        ],
+                    }
                 };
             });
             esMock.add(
@@ -389,44 +417,47 @@ describe('DdbToEsHelper', () => {
             // BUILD
             const mockBulk = jest.fn(() => {
                 return {
-                    took: 486,
-                    errors: true,
-                    items: [
-                        {
-                            update: {
-                                _index: 'patient',
-                                _type: '_doc',
-                                _id: 'id1_1',
-                                status: 404,
-                                error: {
-                                    type: 'document_missing_exception',
-                                    reason: '[_doc][5]: document missing',
-                                    index_uuid: 'aAsFqTI0Tc2W0LCWgPNrOA',
-                                    shard: '0',
-                                    index: 'patient',
+                    body: {
+                        took: 486,
+                        errors: true,
+                        items: [
+                            {
+                                update: {
+                                    _index: 'patient',
+                                    _type: '_doc',
+                                    _id: 'id1_1',
+                                    status: 404,
+                                    error: {
+                                        type: 'document_missing_exception',
+                                        reason: '[_doc][5]: document missing',
+                                        index_uuid: 'aAsFqTI0Tc2W0LCWgPNrOA',
+                                        shard: '0',
+                                        index: 'patient',
+                                    },
                                 },
                             },
-                        },
-                        {
-                            delete: {
-                                _index: 'patient',
-                                _type: '_doc',
-                                _id: '2',
-                                _version: 1,
-                                result: 'not_found',
-                                _shards: {
-                                    total: 2,
-                                    successful: 1,
-                                    failed: 0,
+                            {
+                                delete: {
+                                    _index: 'patient',
+                                    _type: '_doc',
+                                    _id: '2',
+                                    _version: 1,
+                                    result: 'not_found',
+                                    _shards: {
+                                        total: 2,
+                                        successful: 1,
+                                        failed: 0,
+                                    },
+                                    status: 404,
+                                    _seq_no: 1,
+                                    _primary_term: 2,
                                 },
-                                status: 404,
-                                _seq_no: 1,
-                                _primary_term: 2,
                             },
-                        },
-                    ],
+                        ],
+                    }
                 };
             });
+
             esMock.add(
                 {
                     method: 'POST',
@@ -434,6 +465,7 @@ describe('DdbToEsHelper', () => {
                 },
                 mockBulk,
             );
+
             // TEST
             await expect(
                 ddbToEsHelper.executeEsCmds([

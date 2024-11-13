@@ -5,11 +5,11 @@
 
 /* eslint-disable no-underscore-dangle */
 
-import { Client } from '@elastic/elasticsearch';
-// @ts-ignore
-import { AmazonConnection, AmazonTransport } from 'aws-elasticsearch-connector';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { Client } from '@opensearch-project/opensearch';
+import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
 import { uniqWith, isEqual, partition, groupBy, zipObject } from 'lodash';
-import AWS from '../AWS';
+
 import ESBulkCommand, { OperationType } from './ESBulkCommand';
 import { DOCUMENT_STATUS_FIELD } from '../dataServices/dynamoDbUtil';
 import DOCUMENT_STATUS from '../dataServices/documentStatus';
@@ -20,7 +20,11 @@ const DELETED = 'DELETED';
 
 const logger = getComponentLogger();
 
-const { IS_OFFLINE, ELASTICSEARCH_DOMAIN_ENDPOINT } = process.env;
+let { ELASTICSEARCH_DOMAIN_ENDPOINT, IS_OFFLINE, OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT } = process.env;
+
+if (IS_OFFLINE === 'true') {
+    ELASTICSEARCH_DOMAIN_ENDPOINT = OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT || 'https://fake-es-endpoint.com';
+}
 
 const formatDocument = (ddbImage: any): any => {
     // eslint-disable-next-line no-underscore-dangle
@@ -36,22 +40,18 @@ const formatDocument = (ddbImage: any): any => {
 };
 
 const getDefaultESClientFromEnvVars: () => Client = () => {
-    let ES_DOMAIN_ENDPOINT = ELASTICSEARCH_DOMAIN_ENDPOINT || 'https://fake-es-endpoint.com';
-    if (IS_OFFLINE === 'true') {
-        const { ACCESS_KEY, SECRET_KEY, AWS_REGION, OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT } = process.env;
-
-        AWS.config.update({
-            region: AWS_REGION || 'us-west-2',
-            accessKeyId: ACCESS_KEY,
-            secretAccessKey: SECRET_KEY,
-        });
-        ES_DOMAIN_ENDPOINT = OFFLINE_ELASTICSEARCH_DOMAIN_ENDPOINT || 'https://fake-es-endpoint.com';
-    }
-
+    const ES_DOMAIN_ENDPOINT = ELASTICSEARCH_DOMAIN_ENDPOINT || 'https://fake-es-endpoint.com';
+    
     return new Client({
+        ...AwsSigv4Signer({
+            region: process.env.AWS_REGION || 'eu-west-2',
+            service: 'es',
+            getCredentials: () => {
+                const credentialsProvider = defaultProvider();
+                return credentialsProvider();
+            },
+        }),
         node: ES_DOMAIN_ENDPOINT,
-        Connection: AmazonConnection,
-        Transport: AmazonTransport,
     });
 };
 
@@ -71,7 +71,7 @@ export default class DdbToEsHelper {
         const uniqAliases = uniqWith(aliases, isEqual);
         const listOfAliases = uniqAliases.map((x) => x.alias);
 
-        const { body: allFound } = await this.ElasticSearch.indices.existsAlias({
+        const allFound = await this.ElasticSearch.indices.existsAlias({
             name: listOfAliases,
             expand_wildcards: 'all',
         });
@@ -85,7 +85,7 @@ export default class DdbToEsHelper {
         const existingIndices: Set<string> = new Set();
         const existingAliases: Set<string> = new Set();
 
-        const { body: indices } = await this.ElasticSearch.indices.getAlias();
+        const indices = await this.ElasticSearch.indices.getAlias();
         Object.entries(indices).forEach(([indexName, indexBody]) => {
             existingIndices.add(indexName);
             Object.keys((indexBody as any).aliases).forEach((alias: string) => {
@@ -221,16 +221,16 @@ export default class DdbToEsHelper {
         });
         logger.info(`Starting bulk sync operation on ids: `, listOfIds);
         try {
-            const { body: bulkResponse } = await this.ElasticSearch.bulk({
+            const bulkResponse = await this.ElasticSearch.bulk({
                 refresh: 'wait_for',
                 body: bulkCmds,
             });
 
-            if (bulkResponse.errors) {
+            if (bulkResponse.body.errors) {
                 const erroredDocuments: any[] = [];
                 // The presence of the `error` key indicates that the operation
                 // that we did for the document has failed.
-                bulkResponse.items.forEach((action: any) => {
+                bulkResponse.body.items.forEach((action: any) => {
                     const operation = Object.keys(action)[0];
                     if (action[operation].error) {
                         erroredDocuments.push({

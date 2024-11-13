@@ -1,16 +1,15 @@
-import { QueryInput } from 'aws-sdk/clients/dynamodb';
-import AWS from 'aws-sdk';
-import * as AWSMock from 'aws-sdk-mock';
-import { ResourceNotFoundError } from 'fhir-works-on-aws-interface';
+import { ResourceNotFoundError } from '@ascentms/fhir-works-on-aws-interface';
+import { DynamoDB, DynamoDBClient, QueryCommand, QueryInput } from '@aws-sdk/client-dynamodb';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { mockClient } from 'aws-sdk-client-mock';
+import 'aws-sdk-client-mock-jest';
 import { cloneDeep } from 'lodash';
-import { DynamoDBConverter } from './dynamoDb';
+
 import DynamoDbHelper from './dynamoDbHelper';
 import { utcTimeRegExp } from '../../testUtilities/regExpressions';
 import { ConditionalCheckFailedExceptionMock } from '../../testUtilities/ConditionalCheckFailedException';
 import DOCUMENT_STATUS from './documentStatus';
 import { DOCUMENT_STATUS_FIELD, DynamoDbUtil } from './dynamoDbUtil';
-
-AWSMock.setSDKInstance(AWS);
 
 const id = '8cafa46d-08b4-4ee4-b51b-803e20ae8126';
 const resourceType = 'Patient';
@@ -38,51 +37,74 @@ function getExpectedResponse(res: any, versionId: string) {
         resource: expectedResource,
     };
 }
+
+const dynamoDbMock = mockClient(DynamoDBClient);
+
 describe('getMostRecentResource', () => {
-    afterEach(() => {
-        AWSMock.restore();
+    beforeEach(() => {
+        //AWSMock.restore();
+        dynamoDbMock.reset();
     });
+
     test('SUCCESS: Found most recent resource', async () => {
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(null, {
-                Items: [DynamoDBConverter.marshall(resource)],
+                Items: [marshall(resource)],
             });
         });
-
+        */
+        dynamoDbMock.on(QueryCommand).resolvesOnce({
+            Items: [marshall(resource)],
+        });
+        
         const expectedResponse = getExpectedResponse(resource, '1');
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         await expect(ddbHelper.getMostRecentResource(resourceType, id)).resolves.toEqual(expectedResponse);
+
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
     test('FAILED: resourceType of request does not match resourceType retrieved', async () => {
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(new ConditionalCheckFailedExceptionMock(), {});
         });
+        */
+        dynamoDbMock.on(QueryCommand).rejectsOnce(new ConditionalCheckFailedExceptionMock());
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         await expect(ddbHelper.getMostRecentResource(resourceType, id)).rejects.toThrowError(
             new ResourceNotFoundError(resourceType, id),
         );
+
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
 
     test('FAILED: Resource not found', async () => {
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(null, {});
         });
+        */
+        dynamoDbMock.on(QueryCommand).resolvesOnce({});
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         await expect(ddbHelper.getMostRecentResource(resourceType, id)).rejects.toThrowError(
             new ResourceNotFoundError(resourceType, id),
         );
+
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
 });
 
 describe('getMostRecentValidResource', () => {
-    afterEach(() => {
-        AWSMock.restore();
+    beforeEach(() => {
+        //AWSMock.restore();
+        dynamoDbMock.reset();
     });
     const v2Resource = cloneDeep(resource);
     v2Resource.meta = { versionId: '2', lastUpdated: new Date().toISOString() };
@@ -96,17 +118,24 @@ describe('getMostRecentValidResource', () => {
 
     test('SUCCESS: Latest version is in AVAILABLE status', async () => {
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(null, {
-                Items: [DynamoDBConverter.marshall(v2Resource), DynamoDBConverter.marshall(resource)],
+                Items: [marshall(v2Resource), marshall(resource)],
             });
+        });
+        */
+        dynamoDbMock.on(QueryCommand).resolvesOnce({
+            Items: [marshall(v2Resource), marshall(resource)],
         });
 
         const expectedResponse = getExpectedResponse(v2Resource, '2');
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         // If latest version is in AVAILABLE status, then the resource being returned should be the latest version
         await expect(ddbHelper.getMostRecentUserReadableResource(resourceType, id)).resolves.toEqual(expectedResponse);
+
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
 
     test('SUCCESS: Second latest version is in AVAILABLE status', async () => {
@@ -114,40 +143,56 @@ describe('getMostRecentValidResource', () => {
         clonedV2Resource[DOCUMENT_STATUS_FIELD] = DOCUMENT_STATUS.PENDING;
 
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(null, {
-                Items: [DynamoDBConverter.marshall(clonedV2Resource), DynamoDBConverter.marshall(resource)],
+                Items: [marshall(clonedV2Resource), marshall(resource)],
             });
+        });
+        */
+        dynamoDbMock.on(QueryCommand).resolvesOnce({
+            Items: [marshall(clonedV2Resource), marshall(resource)],
         });
 
         const expectedResponse = getExpectedResponse(resource, '1');
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         // If latest version is in PENDING status, then the resource being returned should be the second latest version
         await expect(ddbHelper.getMostRecentUserReadableResource(resourceType, id)).resolves.toEqual(expectedResponse);
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
 
     test('FAILED: resourceType of request does not match resourceType retrieved', async () => {
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(new ConditionalCheckFailedExceptionMock(), {});
         });
+        */
+        dynamoDbMock.on(QueryCommand).rejectsOnce(new ConditionalCheckFailedExceptionMock());
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         await expect(ddbHelper.getMostRecentUserReadableResource(resourceType, id)).rejects.toThrowError(
             new ResourceNotFoundError(resourceType, id),
         );
+
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
 
     test('FAILED: Resource not found', async () => {
         // READ items (Success)
+        /*
         AWSMock.mock('DynamoDB', 'query', (params: QueryInput, callback: Function) => {
             callback(null, {});
         });
+        */
+        dynamoDbMock.on(QueryCommand).resolvesOnce({});
 
-        const ddbHelper = new DynamoDbHelper(new AWS.DynamoDB());
+        const ddbHelper = new DynamoDbHelper(new DynamoDB());
         await expect(ddbHelper.getMostRecentUserReadableResource(resourceType, id)).rejects.toThrowError(
             new ResourceNotFoundError(resourceType, id),
         );
+
+        expect(dynamoDbMock).toHaveReceivedCommandTimes(QueryCommand, 1);
     });
 });

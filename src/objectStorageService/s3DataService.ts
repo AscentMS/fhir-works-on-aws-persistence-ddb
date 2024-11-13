@@ -20,7 +20,7 @@ import {
     ResourceNotFoundError,
     InitiateExportRequest,
     GetExportStatusResponse,
-} from 'fhir-works-on-aws-interface';
+} from '@ascentms/fhir-works-on-aws-interface';
 
 import S3ObjectStorageService from './s3ObjectStorageService';
 import ObjectNotFoundError from './ObjectNotFoundError';

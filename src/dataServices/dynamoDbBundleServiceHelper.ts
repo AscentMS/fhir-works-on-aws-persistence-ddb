@@ -3,21 +3,22 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import uuidv4 from 'uuid/v4';
+import { v4 } from 'uuid';
 import {
     BatchReadWriteRequest,
     BatchReadWriteResponse,
     TypeOperation,
     SystemOperation,
     isResourceNotFoundError,
-} from 'fhir-works-on-aws-interface';
-import { DynamoDB } from 'aws-sdk';
+} from '@ascentms/fhir-works-on-aws-interface';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { buildHashKey, DOCUMENT_STATUS_FIELD, DynamoDbUtil } from './dynamoDbUtil';
 import DOCUMENT_STATUS from './documentStatus';
-import { DynamoDBConverter, RESOURCE_TABLE } from './dynamoDb';
+import { RESOURCE_TABLE } from './dynamoDb';
 import DynamoDbParamBuilder from './dynamoDbParamBuilder';
 import { MAX_BATCH_WRITE_ITEMS } from '../constants';
 import DynamoDbHelper from './dynamoDbHelper';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
 export interface ItemRequest {
     id: string;
@@ -45,7 +46,7 @@ export default class DynamoDbBundleServiceHelper {
             switch (request.operation) {
                 case 'create': {
                     // Add create request, put it in PENDING
-                    let id = uuidv4();
+                    let id = v4();
                     if (request.id) {
                         id = request.id;
                     }
@@ -61,7 +62,7 @@ export default class DynamoDbBundleServiceHelper {
                     createRequests.push({
                         Put: {
                             TableName: RESOURCE_TABLE,
-                            Item: DynamoDBConverter.marshall(Item),
+                            Item: marshall(Item),
                         },
                     });
                     const { stagingResponse, itemLocked } = this.addStagingResponseAndItemsLocked(request.operation, {
@@ -89,7 +90,7 @@ export default class DynamoDbBundleServiceHelper {
                     updateRequests.push({
                         Put: {
                             TableName: RESOURCE_TABLE,
-                            Item: DynamoDBConverter.marshall(Item),
+                            Item: marshall(Item),
                         },
                     });
 
@@ -132,7 +133,7 @@ export default class DynamoDbBundleServiceHelper {
                     readRequests.push({
                         Get: {
                             TableName: RESOURCE_TABLE,
-                            Key: DynamoDBConverter.marshall({
+                            Key: marshall({
                                 id: buildHashKey(id, tenantId),
                                 vid,
                             }),
@@ -224,7 +225,7 @@ export default class DynamoDbBundleServiceHelper {
                 if (item === undefined) {
                     throw new Error('Failed to fulfill all READ requests');
                 }
-                item = DynamoDBConverter.unmarshall(item);
+                item = unmarshall(item);
                 item = DynamoDbUtil.cleanItem(item);
 
                 stagingResponse.resource = item;
@@ -265,7 +266,7 @@ export default class DynamoDbBundleServiceHelper {
 
         const createItem = {
             PutRequest: {
-                Item: DynamoDBConverter.marshall(item),
+                Item: marshall(item),
             },
             originalRequestIndex,
         };
@@ -304,7 +305,7 @@ export default class DynamoDbBundleServiceHelper {
 
             if (operation === 'create') {
                 vid = 1;
-                id = request.id ? request.id : uuidv4();
+                id = request.id ? request.id : v4();
             } else {
                 try {
                     // eslint-disable-next-line no-await-in-loop
@@ -314,7 +315,7 @@ export default class DynamoDbBundleServiceHelper {
                     // if upsert supported and update operation
                     if (updateCreateSupported && operation === 'update' && isResourceNotFoundError(e)) {
                         vid = 1;
-                        id = request.id ? request.id : uuidv4();
+                        id = request.id ? request.id : v4();
                         const createObject = {
                             item,
                             request,
@@ -372,7 +373,7 @@ export default class DynamoDbBundleServiceHelper {
                     // we create a new version of the resource with an incremented vid
                     updateRequests.push({
                         PutRequest: {
-                            Item: DynamoDBConverter.marshall(item),
+                            Item: marshall(item),
                         },
                         originalRequestIndex,
                     });
@@ -448,8 +449,7 @@ export default class DynamoDbBundleServiceHelper {
                     RequestItems: {
                         [RESOURCE_TABLE]: [...statements],
                     },
-                })
-                .promise();
+                });
             batchExecuteResponse.UnprocessedItems?.[RESOURCE_TABLE]?.forEach((item, unprocessedItemIndex) => {
                 console.log('Unable to process request: ', item);
                 // get the position of the batch element at index in the larger batchReadWriteResponses array
@@ -478,8 +478,7 @@ export default class DynamoDbBundleServiceHelper {
             const batchExecuteResponse = await dynamoDb
                 .batchExecuteStatement({
                     Statements: [...statements],
-                })
-                .promise();
+                });
             batchExecuteResponse.Responses?.forEach((response, index) => {
                 if (response.Error) {
                     console.log('Unable to process request: ', response.Error);

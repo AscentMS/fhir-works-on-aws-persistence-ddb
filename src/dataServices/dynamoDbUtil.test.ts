@@ -3,7 +3,7 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import { clone } from 'fhir-works-on-aws-interface';
+import { clone } from '@ascentms/fhir-works-on-aws-interface';
 import { DOCUMENT_STATUS_FIELD, DynamoDbUtil, LOCK_END_TS_FIELD, REFERENCES_FIELD, VID_FIELD } from './dynamoDbUtil';
 import DOCUMENT_STATUS from './documentStatus';
 import { utcTimeRegExp } from '../../testUtilities/regExpressions';
@@ -245,22 +245,22 @@ describe('prepItemForDdbInsert', () => {
                 },
             },
             `
-            Object {
+            {
               "_id": "8cafa46d-08b4-4ee4-b51b-803e20ae8126",
-              "_references": Array [],
+              "_references": [],
               "_tenantId": "tenant1",
               "documentStatus": "PENDING",
               "gender": "male",
               "id": "tenant1|8cafa46d-08b4-4ee4-b51b-803e20ae8126",
               "lockEndTs": Any<Number>,
-              "meta": Object {
+              "meta": {
                 "lastUpdated": StringMatching /\\\\d\\{4\\}-\\\\d\\{2\\}-\\\\d\\{2\\}T\\\\d\\{2\\}:\\\\d\\{2\\}:\\\\d\\{2\\}\\.\\\\d\\+Z/,
                 "versionId": "1",
               },
-              "name": Array [
-                Object {
+              "name": [
+                {
                   "family": "Jameson",
-                  "given": Array [
+                  "given": [
                     "Matt",
                   ],
                 },
@@ -297,15 +297,15 @@ describe('prepItemForDdbInsert subscriptions', () => {
                 },
             },
             `
-            Object {
+            {
               "_id": "8cafa46d-08b4-4ee4-b51b-803e20ae8126",
-              "_references": Array [],
+              "_references": [],
               "_subscriptionStatus": "active",
               "_tenantId": "tenant1",
               "documentStatus": "AVAILABLE",
               "id": "tenant1|8cafa46d-08b4-4ee4-b51b-803e20ae8126",
               "lockEndTs": Any<Number>,
-              "meta": Object {
+              "meta": {
                 "lastUpdated": StringMatching /\\\\d\\{4\\}-\\\\d\\{2\\}-\\\\d\\{2\\}T\\\\d\\{2\\}:\\\\d\\{2\\}:\\\\d\\{2\\}\\.\\\\d\\+Z/,
                 "versionId": "1",
               },
@@ -333,15 +333,15 @@ describe('prepItemForDdbInsert subscriptions', () => {
                 },
             },
             `
-            Object {
+            {
               "_id": "8cafa46d-08b4-4ee4-b51b-803e20ae8126",
-              "_references": Array [],
+              "_references": [],
               "_subscriptionStatus": "active",
               "_tenantId": "tenant1",
               "documentStatus": "AVAILABLE",
               "id": "tenant1|8cafa46d-08b4-4ee4-b51b-803e20ae8126",
               "lockEndTs": Any<Number>,
-              "meta": Object {
+              "meta": {
                 "lastUpdated": StringMatching /\\\\d\\{4\\}-\\\\d\\{2\\}-\\\\d\\{2\\}T\\\\d\\{2\\}:\\\\d\\{2\\}:\\\\d\\{2\\}\\.\\\\d\\+Z/,
                 "versionId": "1",
               },
@@ -369,14 +369,14 @@ describe('prepItemForDdbInsert subscriptions', () => {
                 },
             },
             `
-            Object {
+            {
               "_id": "8cafa46d-08b4-4ee4-b51b-803e20ae8126",
-              "_references": Array [],
+              "_references": [],
               "_tenantId": "tenant1",
               "documentStatus": "AVAILABLE",
               "id": "tenant1|8cafa46d-08b4-4ee4-b51b-803e20ae8126",
               "lockEndTs": Any<Number>,
-              "meta": Object {
+              "meta": {
                 "lastUpdated": StringMatching /\\\\d\\{4\\}-\\\\d\\{2\\}-\\\\d\\{2\\}T\\\\d\\{2\\}:\\\\d\\{2\\}:\\\\d\\{2\\}\\.\\\\d\\+Z/,
                 "versionId": "1",
               },

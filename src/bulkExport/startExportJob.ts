@@ -4,8 +4,9 @@
  */
 
 import { Handler } from 'aws-lambda';
-import AWS from '../AWS';
+
 import { BulkExportStateMachineGlobalParameters } from './types';
+import { Glue } from '@aws-sdk/client-glue';
 
 export const startExportJobHandler: Handler<
     BulkExportStateMachineGlobalParameters,
@@ -16,7 +17,7 @@ export const startExportJobHandler: Handler<
         throw new Error('GLUE_JOB_NAME environment variable is not defined');
     }
 
-    const glue = new AWS.Glue();
+    const glue = new Glue();
     const startJobRunResponse = await glue
         .startJobRun({
             JobName: GLUE_JOB_NAME,
@@ -33,8 +34,7 @@ export const startExportJobHandler: Handler<
                 '--serverUrl': event.serverUrl!,
                 '--compartmentSearchParamFile': event.compartmentSearchParamFile!,
             },
-        })
-        .promise();
+        });
     return {
         ...event,
         executionParameters: {

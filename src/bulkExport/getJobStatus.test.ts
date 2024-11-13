@@ -3,23 +3,31 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import * as AWSMock from 'aws-sdk-mock';
-import AWS from 'aws-sdk';
-import { QueryInput } from 'aws-sdk/clients/dynamodb';
-import sinon from 'sinon';
+import { DynamoDB, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import { GetJobRunCommand, Glue } from '@aws-sdk/client-glue';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { mockClient } from 'aws-sdk-client-mock';
+import 'aws-sdk-client-mock-jest';
+
+import DynamoDbParamBuilder from '../dataServices/dynamoDbParamBuilder';
 import { getJobStatusHandler } from './getJobStatus';
 import { BulkExportStateMachineGlobalParameters } from './types';
-import { DynamoDBConverter } from '../dataServices/dynamoDb';
-import DynamoDbParamBuilder from '../dataServices/dynamoDbParamBuilder';
-
-AWSMock.setSDKInstance(AWS);
 
 const jobOwnerId = 'owner-1';
 
 describe('getJobStatus', () => {
+    const dynamoDbMock = mockClient(DynamoDB);
+    const glueMock = mockClient(Glue);
+
     beforeEach(() => {
         process.env.GLUE_JOB_NAME = 'jobName';
-        AWSMock.restore();
+        dynamoDbMock.reset();
+        glueMock.reset();
+    });
+
+    afterAll(() => {
+        dynamoDbMock.restore();
+        glueMock.restore();
     });
 
     test('completed job', async () => {
@@ -33,6 +41,7 @@ describe('getJobStatus', () => {
             },
         };
         process.env.GLUE_JOB_NAME = 'jobName';
+        /*
         AWSMock.mock('Glue', 'getJobRun', (params: any, callback: Function) => {
             callback(null, {
                 JobRun: {
@@ -40,14 +49,29 @@ describe('getJobStatus', () => {
                 },
             });
         });
+
         AWSMock.mock('DynamoDB', 'getItem', (params: QueryInput, callback: Function) => {
             callback(null, {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     jobId: '2a937fe2-8bb1-442b-b9be-434c94f30e15',
                     jobStatus: 'in-progress',
                 }),
             });
         });
+        */
+        glueMock.on(GetJobRunCommand).resolvesOnce({
+            JobRun: {
+                JobRunState: 'SUCCEEDED',
+            },
+        });
+
+        dynamoDbMock.on(GetItemCommand).resolvesOnce({
+            Item: marshall({
+                jobId: '2a937fe2-8bb1-442b-b9be-434c94f30e15',
+                jobStatus: 'in-progress',
+            }),
+        });
+
         await expect(getJobStatusHandler(event, null as any, null as any)).resolves.toEqual({
             jobId: '1',
             jobOwnerId,
@@ -73,6 +97,8 @@ describe('getJobStatus', () => {
             },
         };
         process.env.GLUE_JOB_NAME = 'jobName';
+
+        /*
         AWSMock.mock('Glue', 'getJobRun', (params: any, callback: Function) => {
             callback(null, {
                 JobRun: {
@@ -84,12 +110,27 @@ describe('getJobStatus', () => {
         AWSMock.mock('DynamoDB', 'getItem', (params: QueryInput, callback: Function) => {
             getItemSpy(params);
             callback(null, {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     jobId: 'tenan1|2a937fe2-8bb1-442b-b9be-434c94f30e15',
                     jobStatus: 'in-progress',
                 }),
             });
         });
+        */
+
+        glueMock.on(GetJobRunCommand).resolvesOnce({
+            JobRun: {
+                JobRunState: 'SUCCEEDED',
+            },
+        });
+
+        dynamoDbMock.on(GetItemCommand).resolvesOnce({
+            Item: marshall({
+                jobId: 'tenan1|2a937fe2-8bb1-442b-b9be-434c94f30e15',
+                jobStatus: 'in-progress',
+            }),
+        });
+
         await expect(getJobStatusHandler(event, null as any, null as any)).resolves.toEqual({
             jobId: '1',
             jobOwnerId,
@@ -102,7 +143,8 @@ describe('getJobStatus', () => {
                 isCanceled: false,
             },
         });
-        expect(getItemSpy.getCall(0).args[0]).toMatchObject(DynamoDbParamBuilder.buildGetExportRequestJob('tenant1|1'));
+        //expect(getItemSpy.getCall(0).args[0]).toMatchObject(DynamoDbParamBuilder.buildGetExportRequestJob('tenant1|1'));
+        expect(dynamoDbMock.call(0).args[0].input).toMatchObject(DynamoDbParamBuilder.buildGetExportRequestJob('tenant1|1'))
     });
 
     test('failed job', async () => {
@@ -115,6 +157,8 @@ describe('getJobStatus', () => {
                 glueJobRunId: 'jr_1',
             },
         };
+
+        /*
         AWSMock.mock('Glue', 'getJobRun', (params: any, callback: Function) => {
             callback(null, {
                 JobRun: {
@@ -124,12 +168,27 @@ describe('getJobStatus', () => {
         });
         AWSMock.mock('DynamoDB', 'getItem', (params: QueryInput, callback: Function) => {
             callback(null, {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     jobId: '2a937fe2-8bb1-442b-b9be-434c94f30e15',
                     jobStatus: 'in-progress',
                 }),
             });
         });
+        */
+
+        glueMock.on(GetJobRunCommand).resolvesOnce({
+            JobRun: {
+                JobRunState: 'FAILED',
+            },
+        });
+
+        dynamoDbMock.on(GetItemCommand).resolvesOnce({
+            Item: marshall({
+                jobId: '2a937fe2-8bb1-442b-b9be-434c94f30e15',
+                jobStatus: 'in-progress',
+            }),
+        });
+
         await expect(getJobStatusHandler(event, null as any, null as any)).resolves.toEqual({
             jobId: '1',
             jobOwnerId,
@@ -153,6 +212,8 @@ describe('getJobStatus', () => {
                 glueJobRunId: 'jr_1',
             },
         };
+
+        /*
         AWSMock.mock('Glue', 'getJobRun', (params: any, callback: Function) => {
             callback(null, {
                 JobRun: {
@@ -162,12 +223,28 @@ describe('getJobStatus', () => {
         });
         AWSMock.mock('DynamoDB', 'getItem', (params: QueryInput, callback: Function) => {
             callback(null, {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     jobId: '2a937fe2-8bb1-442b-b9be-434c94f30e15',
                     jobStatus: 'canceling',
                 }),
             });
         });
+        */
+
+        glueMock.on(GetJobRunCommand).resolvesOnce({
+            JobRun: {
+                JobRunState: 'RUNNING',
+            },
+        });
+
+        dynamoDbMock.on(GetItemCommand).resolvesOnce({
+            Item: marshall({
+                jobId: '2a937fe2-8bb1-442b-b9be-434c94f30e15',
+                    jobStatus: 'canceling',
+            }),
+        });
+
+
         await expect(getJobStatusHandler(event, null as any, null as any)).resolves.toEqual({
             jobId: '1',
             jobOwnerId,

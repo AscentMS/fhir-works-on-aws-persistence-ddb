@@ -2,18 +2,18 @@
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
-import * as AWSMock from 'aws-sdk-mock';
-import AWS from 'aws-sdk';
-import { BatchReadWriteRequest, BatchReadWriteResponse, ResourceNotFoundError } from 'fhir-works-on-aws-interface';
-import sinon = require('sinon');
-import { QueryInput } from 'aws-sdk/clients/dynamodb';
+import { BatchReadWriteRequest, BatchReadWriteResponse, ResourceNotFoundError } from '@ascentms/fhir-works-on-aws-interface';
+import { BatchExecuteStatementCommand, BatchStatementErrorCodeEnum, BatchWriteItemCommand, DynamoDB, DynamoDBClient, QueryInput } from '@aws-sdk/client-dynamodb';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { mockClient } from 'aws-sdk-client-mock';
+import 'aws-sdk-client-mock-jest';
+
 import DynamoDbBundleServiceHelper from './dynamoDbBundleServiceHelper';
-import { DynamoDBConverter } from './dynamoDb';
 import GenerateStagingRequestsFactory from '../../testUtilities/GenerateStagingRequestsFactory';
 import GenerateRollbackRequestsFactory from '../../testUtilities/GenerateRollbackRequestsFactory';
 import DynamoDbHelper from './dynamoDbHelper';
+import { restore, stub } from 'sinon';
 
-AWSMock.setSDKInstance(AWS);
 const utcTimeRegExp = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d+)?Z/;
 
 describe('generateStagingRequests', () => {
@@ -177,7 +177,8 @@ describe('generateRollbackRequests', () => {
         itemsToRemoveFromLock = itemsToRemoveFromLock.concat(expectedUpdateResult.itemsToRemoveFromLock);
         itemsToRemoveFromLock = itemsToRemoveFromLock.concat(expectedDeleteResult.itemsToRemoveFromLock);
 
-        itemsToRemoveFromLock = itemsToRemoveFromLock.filter((item: any) => item !== []);
+        //itemsToRemoveFromLock = itemsToRemoveFromLock.filter((item: any) => item !== []);
+        itemsToRemoveFromLock = itemsToRemoveFromLock.filter((item: any) => item.constructor.name !== 'Array');
 
         let transactionRequests: any = [];
         transactionRequests = transactionRequests.concat(expectedCreateResult.transactionRequests);
@@ -185,7 +186,8 @@ describe('generateRollbackRequests', () => {
         transactionRequests = transactionRequests.concat(expectedUpdateResult.transactionRequests);
         transactionRequests = transactionRequests.concat(expectedDeleteResult.transactionRequests);
 
-        transactionRequests = transactionRequests.filter((req: any) => req !== []);
+        //transactionRequests = transactionRequests.filter((req: any) => req !== []);
+        transactionRequests = transactionRequests.filter((req: any) => req.constructor.name !== 'Array');
 
         expect(actualResult).toEqual({ itemsToRemoveFromLock, transactionRequests });
     });
@@ -267,10 +269,10 @@ describe('populateBundleEntryResponseWithReadResult', () => {
         const readResult = {
             Responses: [
                 {
-                    Item: DynamoDBConverter.marshall(firstReadItem),
+                    Item: marshall(firstReadItem),
                 },
                 {
-                    Item: DynamoDBConverter.marshall(secondReadItem),
+                    Item: marshall(secondReadItem),
                 },
             ],
         };
@@ -299,10 +301,12 @@ describe('populateBundleEntryResponseWithReadResult', () => {
 });
 
 describe('processBatchRequests', () => {
+    const dynamoDbMock = mockClient(DynamoDBClient);
+
     const writeOperations = [
         {
             PutRequest: {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     id: 'create',
                     vid: 1,
                 }),
@@ -311,7 +315,7 @@ describe('processBatchRequests', () => {
         },
         {
             PutRequest: {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     id: 'update',
                     vid: 2,
                 }),
@@ -320,7 +324,7 @@ describe('processBatchRequests', () => {
         },
         {
             PutRequest: {
-                Item: DynamoDBConverter.marshall({
+                Item: marshall({
                     id: 'createSuccess',
                     vid: 1,
                 }),
@@ -340,19 +344,32 @@ describe('processBatchRequests', () => {
     ];
 
     afterEach(() => {
-        AWSMock.restore();
+        //AWSMock.restore();
+        dynamoDbMock.reset();
     });
+
+    afterAll(() => {
+        dynamoDbMock.restore();
+    });
+
     test('successfully deleted a resource', async () => {
+        /*
         AWSMock.mock('DynamoDB', 'batchExecuteStatement', (params: QueryInput, callback: Function) => {
             callback(null, {
                 Responses: [[{ TableName: 'resource-table' }]],
             });
         });
+        */
+        dynamoDbMock.on(BatchExecuteStatementCommand).resolvesOnce({
+            Responses: [{ TableName: 'resource-table' }],
+        });
 
         // nothing is returned in the array if everything is successful
         await expect(
-            DynamoDbBundleServiceHelper.processBatchDeleteRequests(deleteOperations, [], new AWS.DynamoDB()),
+            DynamoDbBundleServiceHelper.processBatchDeleteRequests(deleteOperations, [], new DynamoDB()),
         ).resolves.toEqual([]);
+
+        expect(dynamoDbMock).toReceiveCommandTimes(BatchExecuteStatementCommand, 1);
     });
 
     test('failed to delete a resource', async () => {
@@ -374,6 +391,7 @@ describe('processBatchRequests', () => {
                 lastModified: '',
             },
         ];
+        /*
         AWSMock.mock('DynamoDB', 'batchExecuteStatement', (params: QueryInput, callback: Function) => {
             callback(null, {
                 Responses: [
@@ -389,10 +407,24 @@ describe('processBatchRequests', () => {
                 ],
             });
         });
+        */
+        dynamoDbMock.on(BatchExecuteStatementCommand).resolves({
+            Responses: [
+                {
+                    Error: {
+                        Code: "400" as any,
+                        Message: 'Failed to Delete Resource',
+                    },
+                },
+                {
+                    Item: {},
+                },
+            ],
+        });
 
         // ensure responses are in same order as requests.
         await expect(
-            DynamoDbBundleServiceHelper.processBatchDeleteRequests(deleteOperations, batchResponse, new AWS.DynamoDB()),
+            DynamoDbBundleServiceHelper.processBatchDeleteRequests(deleteOperations, batchResponse, new DynamoDB()),
         ).resolves.toMatchObject([
             {
                 ...batchResponse[0],
@@ -402,25 +434,39 @@ describe('processBatchRequests', () => {
                 ...batchResponse[1],
             },
         ]);
+
+        expect(dynamoDbMock).toReceiveCommandTimes(BatchExecuteStatementCommand, 1);
     });
 
     test('successfully created/updated a resource', async () => {
+        /*
         AWSMock.mock('DynamoDB', 'batchWriteItem', (params: QueryInput, callback: Function) => {
             callback(null, {});
         });
+        */
+        dynamoDbMock.on(BatchWriteItemCommand).resolves({});
 
         await expect(
-            DynamoDbBundleServiceHelper.processBatchEditRequests(writeOperations, [], new AWS.DynamoDB()),
+            DynamoDbBundleServiceHelper.processBatchEditRequests(writeOperations, [], new DynamoDB()),
         ).resolves.toEqual([]);
+
+        expect(dynamoDbMock).toReceiveCommandTimes(BatchWriteItemCommand, 1);
     });
 
     test('failed to create/update a resource', async () => {
+        /*
         AWSMock.mock('DynamoDB', 'batchWriteItem', (params: QueryInput, callback: Function) => {
             callback(null, {
                 UnprocessedItems: {
                     '': [writeOperations[0], writeOperations[1]],
                 },
             });
+        });
+        */
+        dynamoDbMock.on(BatchWriteItemCommand).resolves({
+            UnprocessedItems: {
+                '': [writeOperations[0], writeOperations[1]],
+            },
         });
 
         const batchResponses: BatchReadWriteResponse[] = [
@@ -452,7 +498,7 @@ describe('processBatchRequests', () => {
 
         // make sure they are in the correct order
         await expect(
-            DynamoDbBundleServiceHelper.processBatchEditRequests(writeOperations, batchResponses, new AWS.DynamoDB()),
+            DynamoDbBundleServiceHelper.processBatchEditRequests(writeOperations, batchResponses, new DynamoDB()),
         ).resolves.toMatchObject([
             {
                 ...batchResponses[0],
@@ -466,10 +512,17 @@ describe('processBatchRequests', () => {
                 ...batchResponses[2],
             },
         ]);
+
+        expect(dynamoDbMock).toReceiveCommandTimes(BatchWriteItemCommand, 1);
     });
 });
 
 describe('sortBatchRequests', () => {
+
+    afterAll(() => {
+        restore();
+    });
+
     const readResource = {
         message: 'Resource found',
         resource: {
@@ -634,7 +687,7 @@ describe('sortBatchRequests', () => {
     const expectedCreateRequests = [
         {
             PutRequest: {
-                Item: DynamoDBConverter.marshall(writeResource),
+                Item: marshall(writeResource),
             },
             originalRequestIndex: 3,
         },
@@ -642,21 +695,21 @@ describe('sortBatchRequests', () => {
     const expectedUpdateRequests = [
         {
             PutRequest: {
-                Item: DynamoDBConverter.marshall(readResource),
+                Item: marshall(readResource),
             },
             originalRequestIndex: 2,
         },
     ];
 
     // resource exists
-    const ddbHelperReturnReadResource = new DynamoDbHelper(new AWS.DynamoDB());
-    sinon.stub(ddbHelperReturnReadResource, 'getMostRecentUserReadableResource').callsFake(function stubbedGet() {
+    const ddbHelperReturnReadResource = new DynamoDbHelper(new DynamoDB());
+    stub(ddbHelperReturnReadResource, 'getMostRecentUserReadableResource').callsFake(function stubbedGet() {
         return Promise.resolve(readResource);
     });
 
     // resource does not exist
-    const ddbHelperResourceNotFound = new DynamoDbHelper(new AWS.DynamoDB());
-    sinon.stub(ddbHelperResourceNotFound, 'getMostRecentUserReadableResource').callsFake(function stubbedGet() {
+    const ddbHelperResourceNotFound = new DynamoDbHelper(new DynamoDB());
+    stub(ddbHelperResourceNotFound, 'getMostRecentUserReadableResource').callsFake(function stubbedGet() {
         throw new ResourceNotFoundError('Patient', 'read');
     });
 
@@ -695,13 +748,13 @@ describe('sortBatchRequests', () => {
         const expectedCreateRequestsUpsert = [
             {
                 PutRequest: {
-                    Item: DynamoDBConverter.marshall(readResource),
+                    Item: marshall(readResource),
                 },
                 originalRequestIndex: 2,
             },
             {
                 PutRequest: {
-                    Item: DynamoDBConverter.marshall(writeResource),
+                    Item: marshall(writeResource),
                 },
                 originalRequestIndex: 3,
             },

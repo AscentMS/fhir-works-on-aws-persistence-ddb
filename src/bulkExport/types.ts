@@ -2,7 +2,7 @@
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *  SPDX-License-Identifier: Apache-2.0
  */
-import { ExportJobStatus, ExportType } from 'fhir-works-on-aws-interface';
+import { ExportJobStatus, ExportType } from '@ascentms/fhir-works-on-aws-interface';
 import { JobRunState } from 'aws-sdk/clients/glue';
 
 /**

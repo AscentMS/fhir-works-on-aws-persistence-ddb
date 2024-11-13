@@ -3,11 +3,9 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import AWS from '../AWS';
+import { DynamoDB } from "@aws-sdk/client-dynamodb";
 
-export const DynamoDb = new AWS.DynamoDB();
-
-export const DynamoDBConverter = AWS.DynamoDB.Converter;
+export const DynamoDb = new DynamoDB();
 
 export const RESOURCE_TABLE = process.env.RESOURCE_TABLE || '';
 

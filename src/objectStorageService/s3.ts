@@ -3,7 +3,7 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import AWS from '../AWS';
+import { S3 as AwsS3 } from '@aws-sdk/client-s3';
 
 const { IS_OFFLINE } = process.env;
 
@@ -17,6 +17,5 @@ if (IS_OFFLINE === 'true') {
 export const FHIR_BINARY_BUCKET = binaryBucket;
 export const S3_KMS_KEY = s3KMSKey;
 
-export const S3 = new AWS.S3({ signatureVersion: 'v4', sslEnabled: true });
-
+export const S3 = new AwsS3([{ signatureVersion: 'v4', sslEnabled: true, }]);
 export default S3;
